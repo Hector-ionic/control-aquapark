@@ -4,6 +4,47 @@ import html2pdf from 'html2pdf.js';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
+// Función mágica para aplastar imágenes gigantes de Canva sin perder mucha calidad visual
+const compressImage = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = event => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const maxWidth = 1024;
+        const maxHeight = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height *= maxWidth / width));
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width *= maxHeight / height));
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Retorna Base64 comprimido al 65% de calidad JPEG (suficiente para leerse perfecto en un PDF)
+        resolve(canvas.toDataURL('image/jpeg', 0.65));
+      };
+      img.onerror = error => reject(error);
+    };
+    reader.onerror = error => reject(error);
+  });
+};
+
 export default function StudentForm({ isEncargadoMode = false, encargadoName = '', onCancel = null }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime] = useState(new Date());
@@ -48,34 +89,58 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     ));
   };
 
-  const handleFileChange = (id, e) => {
+  const handleFileChange = async (id, e) => {
     const file = e.target.files[0];
     if (file) {
-      // Como guardamos en base de datos directo (sin Storage de paga), limitamos a 800KB aprox
-      if (file.size > 800 * 1024) {
-        alert("El archivo es demasiado pesado. El máximo permitido es 800KB. Por favor comprime tu PDF o imagen.");
+      const isPdf = file.type === 'application/pdf';
+      const isWord = file.type.includes('word') || file.name.endsWith('.doc') || file.name.endsWith('.docx');
+      const isImage = file.type.startsWith('image/');
+
+      let type = 'image';
+      if (isPdf) type = 'pdf';
+      if (isWord) type = 'word';
+
+      // Validación estricta solo para documentos PDF y Word (no se pueden comprimir aquí)
+      if (!isImage && file.size > 800 * 1024) {
+        alert("El documento es demasiado pesado. El máximo permitido para PDFs o Word es 800KB.");
         e.target.value = null; // reset
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const isPdf = file.type === 'application/pdf';
-        const isWord = file.type.includes('word') || file.name.endsWith('.doc') || file.name.endsWith('.docx');
-        let type = 'image';
-        if (isPdf) type = 'pdf';
-        if (isWord) type = 'word';
+      // Evitamos imágenes ridículamente inmensas que cuelguen la memoria RAM del celular
+      if (file.size > 25 * 1024 * 1024) {
+        alert("La imagen excede el límite extremo de 25MB. Por favor, redúcela un poco antes de subirla.");
+        e.target.value = null;
+        return;
+      }
+
+      try {
+        let finalBase64 = null;
+        
+        if (isImage) {
+           // COMPRESIÓN: Aplastamos la imagen pesada de Canva a unos ligeros ~150KB
+           finalBase64 = await compressImage(file);
+        } else {
+           // Para PDFs y Word, leemos el base64 normal sin alteraciones
+           finalBase64 = await new Promise((resolve) => {
+             const reader = new FileReader();
+             reader.onloadend = () => resolve(reader.result);
+             reader.readAsDataURL(file);
+           });
+        }
 
         setActivities(activities.map(act => 
           act.id === id ? { 
             ...act, 
             fileName: file.name, 
             fileType: type,
-            fileBase64: reader.result 
+            fileBase64: finalBase64 
           } : act
         ));
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error("Error al procesar el archivo:", err);
+        alert("Hubo un error al procesar la imagen. Intenta con un formato común (JPG, PNG).");
+      }
     }
   };
 
