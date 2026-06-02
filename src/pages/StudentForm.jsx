@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, FileText } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Función mágica para aplastar imágenes gigantes de Canva sin perder mucha calidad visual
 const compressImage = (file) => {
@@ -95,20 +96,23 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       const isPdf = file.type === 'application/pdf';
       const isWord = file.type.includes('word') || file.name.endsWith('.doc') || file.name.endsWith('.docx');
       const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
 
-      let type = 'image';
+      let type = 'other';
+      if (isImage) type = 'image';
       if (isPdf) type = 'pdf';
       if (isWord) type = 'word';
+      if (isVideo) type = 'video';
 
-      // Validación estricta solo para documentos PDF y Word (no se pueden comprimir aquí)
-      if (!isImage && file.size > 800 * 1024) {
-        alert("El documento es demasiado pesado. El máximo permitido para PDFs o Word es 800KB.");
+      // Límite generoso de 50MB para documentos pesados y videos
+      if (!isImage && file.size > 50 * 1024 * 1024) {
+        alert("El documento es demasiado pesado. El máximo permitido en la nube es 50MB por razones de conexión de red.");
         e.target.value = null; // reset
         return;
       }
 
-      // Evitamos imágenes ridículamente inmensas que cuelguen la memoria RAM del celular
-      if (file.size > 25 * 1024 * 1024) {
+      // Límite de seguridad para imágenes crudas 25MB
+      if (isImage && file.size > 25 * 1024 * 1024) {
         alert("La imagen excede el límite extremo de 25MB. Por favor, redúcela un poco antes de subirla.");
         e.target.value = null;
         return;
@@ -118,15 +122,8 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         let finalBase64 = null;
         
         if (isImage) {
-           // COMPRESIÓN: Aplastamos la imagen pesada de Canva a unos ligeros ~150KB
+           // Mantenemos la compresión SOLO para mostrar la vista previa local rápida en el navegador
            finalBase64 = await compressImage(file);
-        } else {
-           // Para PDFs y Word, leemos el base64 normal sin alteraciones
-           finalBase64 = await new Promise((resolve) => {
-             const reader = new FileReader();
-             reader.onloadend = () => resolve(reader.result);
-             reader.readAsDataURL(file);
-           });
         }
 
         setActivities(activities.map(act => 
@@ -134,7 +131,8 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             ...act, 
             fileName: file.name, 
             fileType: type,
-            fileBase64: finalBase64 
+            fileBase64: finalBase64,
+            rawFile: file // Guardamos el archivo original para subirlo a Firebase Storage al dar Enviar
           } : act
         ));
       } catch (err) {
@@ -169,15 +167,32 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     setIsSubmitting(true);
     
     try {
-      const processedActivities = activities.map((act) => {
+      const processedActivities = await Promise.all(activities.map(async (act) => {
+        let finalUrl = null;
+
+        if (act.rawFile) {
+          const timestamp = Date.now();
+          const safeName = act.rawFile.name.replace(/[^a-zA-Z0-9.]/g, '_');
+          const storageRef = ref(storage, `evidencias/${timestamp}_${safeName}`);
+          
+          try {
+            const snapshot = await uploadBytes(storageRef, act.rawFile);
+            finalUrl = await getDownloadURL(snapshot.ref);
+          } catch (storageErr) {
+            console.error("Error subiendo a Storage:", storageErr);
+            throw new Error("No se pudo subir el archivo " + act.rawFile.name + ". Revisa los permisos de Storage.");
+          }
+        }
+
         return {
           description: act.description,
           link: act.link || '',
           fileBase64: act.fileBase64 || null,
+          fileUrl: finalUrl || null,
           fileType: act.fileType || null,
           fileName: act.fileName || ''
         };
-      });
+      }));
 
       const submitTime = new Date();
 
@@ -426,9 +441,9 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                 
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                   <div className="input-group" style={{ flex: 1, minWidth: '200px' }}>
-                    <label>Adjuntar Evidencia (Imagen, PDF o Word)</label>
+                    <label>Adjuntar Evidencia (Imagen, PDF, Word o Video)</label>
                     <div style={{ position: 'relative', overflow: 'hidden' }}>
-                      <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={(e) => handleFileChange(act.id, e)} style={{ position: 'absolute', opacity: 0, left: 0, top: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10, clipPath: 'none' }} />
+                      <input type="file" accept="image/*,.pdf,.doc,.docx,video/*" onChange={(e) => handleFileChange(act.id, e)} style={{ position: 'absolute', opacity: 0, left: 0, top: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10, clipPath: 'none' }} />
                       <button type="button" className="btn btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', background: 'rgba(255,255,255,0.1)', position: 'relative', zIndex: 1 }}>
                         <Upload size={18} /> {act.fileName || 'Seleccionar Archivo (Máx 800KB)'}
                       </button>

@@ -286,10 +286,10 @@ export default function SupervisorDashboard() {
                 <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}><strong>Referencia:</strong> <a href={act.link} style={{ color: '#2563eb' }}>{act.link}</a></p>
               )}
               
-              {(act.fileType === 'image' || (!act.fileType && act.imageBase64)) && (
+              {(act.fileType === 'image' || (!act.fileType && (act.imageBase64 || act.fileUrl))) && (
                 <div style={{ marginTop: '10px', textAlign: 'center' }}>
                   <p style={{ margin: '0 0 5px 0', fontSize: '14px', textAlign: 'left' }}><strong>Evidencia Fotográfica:</strong></p>
-                  <img src={act.fileBase64 || act.imageBase64} style={{ maxWidth: '400px', maxHeight: '300px', border: '1px solid #e5e7eb', padding: '5px' }} alt="Evidencia" />
+                  <img src={act.fileBase64 || act.fileUrl || act.imageBase64} style={{ maxWidth: '400px', maxHeight: '300px', border: '1px solid #e5e7eb', padding: '5px' }} alt="Evidencia" />
                 </div>
               )}
 
@@ -297,6 +297,14 @@ export default function SupervisorDashboard() {
                 <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
                   <p style={{ margin: 0, fontSize: '14px' }}>
                     <strong>{act.fileType === 'pdf' ? '📄 Documento PDF Adjunto:' : '📝 Documento Word Adjunto:'}</strong> {act.fileName}
+                  </p>
+                </div>
+              )}
+
+              {(act.fileType === 'video') && (
+                <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                  <p style={{ margin: 0, fontSize: '14px' }}>
+                    <strong>🎥 Video Adjunto:</strong> {act.fileName} (Ver en el sistema web)
                   </p>
                 </div>
               )}
@@ -352,9 +360,10 @@ export default function SupervisorDashboard() {
             <h3 style={{ color: 'var(--primary-dark)', marginBottom: '1rem' }}>Actividades Realizadas</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {selectedReport.activities?.map((act, i) => {
-                const isImage = act.fileType === 'image' || (!act.fileType && act.imageBase64);
+                const isImage = act.fileType === 'image' || (!act.fileType && (act.imageBase64 || act.fileUrl));
                 const isDoc = act.fileType === 'pdf' || act.fileType === 'word';
-                const fileSource = act.fileBase64 || act.imageBase64;
+                const isVideo = act.fileType === 'video';
+                const fileSource = act.fileUrl || act.fileBase64 || act.imageBase64;
                 const fileName = act.fileName || `evidencia_actividad_${i+1}`;
 
                 return (
@@ -384,9 +393,18 @@ export default function SupervisorDashboard() {
                       )}
                       
                       {isDoc && fileSource && (
-                        <a href={fileSource} download={fileName} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+                        <a href={fileSource} download={fileName} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
                           <FileDown size={16} /> Descargar {act.fileType === 'word' ? 'Word' : 'PDF'} Adjunto
                         </a>
+                      )}
+
+                      {isVideo && fileSource && (
+                        <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)' }}>
+                          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem' }}>Video Adjunto:</p>
+                          <video controls src={fileSource} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            Tu navegador no soporta video. <a href={fileSource} target="_blank" rel="noreferrer">Descargar</a>
+                          </video>
+                        </div>
                       )}
 
                       {act.link && (
