@@ -354,6 +354,51 @@ select {
   .btn {
     clip-path: none;
     font-size: 0.8rem;
-    padding: 0.6rem 1rem;
+    padding: 0.8rem 1rem;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .app-header {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: center;
+    text-align: center;
+  }
+
+  .app-header nav {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.8rem !important;
+  }
+  
+  .app-header nav a {
+    width: 100%;
+  }
+
+  /* Asegurar que el dashboard y el filtro de turno se ajusten a pantallas pequeñas */
+  .glass-card > div {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .glass-card > div > div, 
+  .glass-card > div > select, 
+  .glass-card > div > button {
+    width: 100% !important;
+    max-width: none !important;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Reportes listados: apilar contenido */
+  div[style*="justify-content: space-between"][style*="padding: 1rem 1.2rem"] {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 1rem;
+  }
+
+  div[style*="justify-content: space-between"][style*="padding: 1rem 1.2rem"] > div:last-child {
+    width: 100%;
+    justify-content: stretch;
   }
 }

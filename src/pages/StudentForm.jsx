@@ -4,7 +4,7 @@ import html2pdf from 'html2pdf.js';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-export default function StudentForm() {
+export default function StudentForm({ isEncargadoMode = false, encargadoName = '', onCancel = null }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime] = useState(new Date());
   
@@ -12,10 +12,10 @@ export default function StudentForm() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
   const [formData, setFormData] = useState({
-    name: '',
-    career: '',
-    institution: '',
-    supervisor: 'Hector Calle',
+    name: isEncargadoMode ? encargadoName : '',
+    career: isEncargadoMode ? 'Encargado de Área' : '',
+    institution: isEncargadoMode ? 'Control AquaPark' : '',
+    supervisor: isEncargadoMode ? 'Administrador' : 'Hector Calle',
     turno: '',
     conclusion: ''
   });
@@ -134,10 +134,14 @@ export default function StudentForm() {
 
       await addDoc(collection(db, "reports"), reportData);
 
-      alert("¡Reporte enviado exitosamente al encargado!");
+      alert(isEncargadoMode ? "¡Tu informe ha sido enviado al Administrador exitosamente!" : "¡Reporte enviado exitosamente al encargado!");
       
-      setFormData({ name: '', career: '', institution: '', supervisor: 'Hector Calle', turno: '', conclusion: '' });
-      setActivities([{ id: 1, description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
+      if (isEncargadoMode && onCancel) {
+        onCancel();
+      } else {
+        setFormData({ name: '', career: '', institution: '', supervisor: 'Hector Calle', turno: '', conclusion: '' });
+        setActivities([{ id: 1, description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
+      }
       
     } catch (error) {
       console.error("Error subiendo reporte: ", error);
@@ -236,10 +240,10 @@ export default function StudentForm() {
       </div>
 
       {/* UI PRINCIPAL */}
-      <div className="glass-panel" id="report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="glass-panel" id="report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ marginBottom: '0.2rem' }}>Registro Diario de Actividades</h2>
-          <p style={{ margin: 0 }}>Llena este formulario al finalizar tu jornada.</p>
+          <h2 style={{ marginBottom: '0.2rem' }}>{isEncargadoMode ? 'Informe Directo a RR.HH' : 'Registro Diario de Actividades'}</h2>
+          <p style={{ margin: 0 }}>{isEncargadoMode ? 'Redacta tu informe de encargado aquí.' : 'Llena este formulario al finalizar tu jornada.'}</p>
         </div>
         <div style={{ textAlign: 'right', background: 'var(--surface-border)', padding: '0.8rem 1.2rem', borderRadius: 'var(--radius-md)' }}>
           <div style={{ fontSize: '0.85rem', textTransform: 'capitalize', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>{dateStr}</div>
@@ -258,37 +262,51 @@ export default function StudentForm() {
             1. Datos Generales
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
-            <div className="input-group">
-              <label>Nombre Completo</label>
-              <input type="text" required placeholder="Ej. Juan Pérez" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-            </div>
-            <div className="input-group">
-              <label>Carrera / Especialidad</label>
-              <select required value={formData.career} onChange={e => setFormData({...formData, career: e.target.value})} style={{ padding: '0.8rem', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 10, 20, 0.8)', color: 'var(--primary-light)' }}>
-                <option value="" disabled>Seleccione una carrera...</option>
-                <option value="Ingeniería en Sistemas">Ingeniería en Sistemas</option>
-                <option value="Ingeniería Comercial">Ingeniería Comercial</option>
-                <option value="Contabilidad">Contabilidad</option>
-                <option value="Ingeniería Civil">Ingeniería Civil</option>
-                <option value="Arquitectura">Arquitectura</option>
-                <option value="Comercio Internacional">Comercio Internacional</option>
-                <option value="Administración de empresas">Administración de empresas</option>
-              </select>
-            </div>
-            <div className="input-group">
-              <label>Institución Educativa</label>
-              <input type="text" required placeholder="Ej. Universidad Tecnológica" value={formData.institution} onChange={e => setFormData({...formData, institution: e.target.value})} />
-            </div>
-            <div className="input-group">
-              <label>Enviar a (Encargado / Administrador)</label>
-              <select required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})} style={{ padding: '0.8rem', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 10, 20, 0.8)', color: 'var(--primary-light)' }}>
-                <option value="Hector Calle">Hector Calle</option>
-                <option value="Lizeth de la Cruz">Lizeth de la Cruz</option>
-                <option value="Jhuliana Quispe">Jhuliana Quispe</option>
-                <option value="Alvaro Mendoza">Alvaro Mendoza</option>
-                <option value="Administrador">Administrador</option>
-              </select>
-            </div>
+            {!isEncargadoMode ? (
+              <>
+                <div className="input-group">
+                  <label>Nombre Completo</label>
+                  <input type="text" required placeholder="Ej. Juan Pérez" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>Carrera / Especialidad</label>
+                  <select required value={formData.career} onChange={e => setFormData({...formData, career: e.target.value})} style={{ padding: '0.8rem', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 10, 20, 0.8)', color: 'var(--primary-light)' }}>
+                    <option value="" disabled>Seleccione una carrera...</option>
+                    <option value="Ingeniería en Sistemas">Ingeniería en Sistemas</option>
+                    <option value="Ingeniería Comercial">Ingeniería Comercial</option>
+                    <option value="Contabilidad">Contabilidad</option>
+                    <option value="Ingeniería Civil">Ingeniería Civil</option>
+                    <option value="Arquitectura">Arquitectura</option>
+                    <option value="Comercio Internacional">Comercio Internacional</option>
+                    <option value="Administración de empresas">Administración de empresas</option>
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label>Institución Educativa</label>
+                  <input type="text" required placeholder="Ej. Universidad Tecnológica" value={formData.institution} onChange={e => setFormData({...formData, institution: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>Enviar a (Encargado)</label>
+                  <select required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})} style={{ padding: '0.8rem', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 10, 20, 0.8)', color: 'var(--primary-light)' }}>
+                    <option value="Hector Calle">Hector Calle</option>
+                    <option value="Lizeth de la Cruz">Lizeth de la Cruz</option>
+                    <option value="Jhuliana Quispe">Jhuliana Quispe</option>
+                    <option value="Alvaro Mendoza">Alvaro Mendoza</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="input-group">
+                  <label>Nombre del Remitente</label>
+                  <input type="text" disabled value={formData.name} style={{ background: 'rgba(0, 10, 20, 0.4)', color: 'var(--text-muted)' }} />
+                </div>
+                <div className="input-group">
+                  <label>Destinatario Fijo</label>
+                  <input type="text" disabled value="RR.HH (Administrador)" style={{ background: 'rgba(0, 10, 20, 0.4)', color: 'var(--text-muted)' }} />
+                </div>
+              </>
+            )}
             <div className="input-group">
               <label>Turno</label>
               <select required value={formData.turno} onChange={e => setFormData({...formData, turno: e.target.value})} style={{ padding: '0.8rem', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 10, 20, 0.8)', color: 'var(--primary-light)' }}>
@@ -373,16 +391,21 @@ export default function StudentForm() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button type="button" onClick={exportPDF} disabled={isGeneratingPDF || isSubmitting} className="btn btn-secondary">
-            {isGeneratingPDF ? <Loader className="animate-spin" size={20} /> : <FileDown size={20} />}
-            {isGeneratingPDF ? 'Generando PDF...' : 'Descargar PDF Formal'}
-          </button>
-          <button type="submit" disabled={isSubmitting} className="btn btn-primary" style={{ padding: '0.8rem 2.5rem' }}>
-            {isSubmitting ? <Loader className="animate-spin" size={20} /> : <Send size={20} />}
-            {isSubmitting ? 'Enviando a Nube...' : 'Enviar Reporte al Encargado'}
-          </button>
-        </div>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {isEncargadoMode && onCancel && (
+              <button type="button" onClick={onCancel} className="btn btn-secondary hide-on-pdf">
+                Cancelar
+              </button>
+            )}
+            <button type="button" onClick={exportPDF} disabled={isGeneratingPDF} className="btn btn-secondary hide-on-pdf">
+              {isGeneratingPDF ? <Loader className="animate-spin" size={18} /> : <FileDown size={18} />}
+              Descargar Copia
+            </button>
+            <button type="submit" disabled={isSubmitting} className="btn btn-primary hide-on-pdf">
+              {isSubmitting ? <Loader className="animate-spin" size={18} /> : <Send size={18} />}
+              {isSubmitting ? 'Enviando...' : 'Enviar Reporte'}
+            </button>
+          </div>
 
       </form>
     </div>

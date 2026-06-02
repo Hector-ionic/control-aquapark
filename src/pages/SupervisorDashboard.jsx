@@ -3,6 +3,7 @@ import { Mail, Key, Search, FileText, Eye, LogOut, Loader, Image as ImageIcon, L
 import html2pdf from 'html2pdf.js';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import StudentForm from './StudentForm';
 
 const USERS = {
   'hector calle': { role: 'Encargado', password: 'AquaPark#01', displayName: 'Hector Calle' },
@@ -16,6 +17,7 @@ export default function SupervisorDashboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
+  const [view, setView] = useState('inbox');
   
   const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -381,6 +383,23 @@ export default function SupervisorDashboard() {
     clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))'
   };
 
+  if (view === 'compose') {
+    return (
+      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h2 style={{ marginBottom: '0.2rem' }}>Redactar Informe para RR.HH</h2>
+            <p style={{ margin: 0 }}>Completa tu reporte de encargado. Será enviado directamente al Administrador.</p>
+          </div>
+          <button className="btn btn-secondary" onClick={() => setView('inbox')}>
+            Volver a Bandeja
+          </button>
+        </div>
+        <StudentForm isEncargadoMode={true} encargadoName={currentUser.displayName} onCancel={() => setView('inbox')} />
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
@@ -389,7 +408,12 @@ export default function SupervisorDashboard() {
           <h2 style={{ marginBottom: '0.2rem' }}>Bandeja de Entrada ({currentUser.role})</h2>
           <p style={{ margin: 0 }}>Bienvenido(a), <strong>{currentUser.displayName}</strong>. Estos son los reportes que has recibido.</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {currentUser.role !== 'Administrador' && (
+            <button className="btn btn-primary" onClick={() => setView('compose')} style={{ padding: '0.5rem 1rem' }}>
+              <FileText size={16} /> REDACTAR INFORME
+            </button>
+          )}
           <button className="btn btn-primary" onClick={exportCSV} style={{ padding: '0.5rem 1rem' }}>
             <Download size={16} /> EXPORTAR CSV
           </button>
