@@ -13,6 +13,33 @@ const USERS = {
   'administrador': { role: 'Administrador', password: 'AdminAquaPark#99', displayName: 'Administrador' }
 };
 
+class ReportErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="glass-panel" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid red' }}>
+          <h2 style={{ color: '#ef4444' }}>Error al cargar el reporte</h2>
+          <p>Ocurrió un fallo en el navegador al intentar renderizar este reporte específico.</p>
+          <pre style={{ background: 'rgba(0,0,0,0.5)', padding: '1rem', overflowX: 'auto', fontSize: '0.8rem', color: '#fca5a5' }}>
+            {this.state.error?.toString()}
+          </pre>
+          <button className="btn btn-secondary" onClick={this.props.onReset} style={{ marginTop: '1rem' }}>
+            Volver a la Bandeja
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function SupervisorDashboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
@@ -93,7 +120,10 @@ export default function SupervisorDashboard() {
       const querySnapshot = await getDocs(q);
       const fetchedReports = [];
       querySnapshot.forEach((doc) => {
-        fetchedReports.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        if (data.turno === 'Mañana' || data.turno === 'Jornada Completa') data.timeStart = '08:00';
+        else if (data.turno === 'Tarde') data.timeStart = '14:00';
+        fetchedReports.push({ id: doc.id, ...data });
       });
       
       fetchedReports.sort((a, b) => {
@@ -208,9 +238,10 @@ export default function SupervisorDashboard() {
 
   if (selectedReport) {
     return (
-      <div className="animate-fade-in glass-panel" style={{ position: 'relative' }}>
-        
-        {/* PLANTILLA PDF OCULTA PARA EL ENCARGADO */}
+      <ReportErrorBoundary onReset={() => setSelectedReport(null)}>
+        <div className="animate-fade-in glass-panel" style={{ position: 'relative' }}>
+          
+          {/* PLANTILLA PDF OCULTA PARA EL ENCARGADO */}
         <div id="supervisor-pdf-formal-template" style={{ display: 'none', background: 'white', color: 'black', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
           <div style={{ textAlign: 'center', borderBottom: '2px solid #1e3a8a', paddingBottom: '15px', marginBottom: '20px' }}>
             <h1 style={{ color: '#1e3a8a', margin: '0 0 10px 0', fontSize: '24px' }}>INFORME DIARIO DE ACTIVIDADES</h1>
@@ -374,6 +405,7 @@ export default function SupervisorDashboard() {
           </div>
         </div>
       </div>
+      </ReportErrorBoundary>
     );
   }
 

@@ -116,6 +116,13 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
       const submitTime = new Date();
 
+      let calculatedTimeStart = startTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      if (formData.turno === 'Mañana' || formData.turno === 'Jornada Completa') {
+        calculatedTimeStart = '08:00';
+      } else if (formData.turno === 'Tarde') {
+        calculatedTimeStart = '14:00';
+      }
+
       const reportData = {
         student: formData.name,
         career: formData.career,
@@ -128,7 +135,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         status: 'Nuevo',
         createdAt: serverTimestamp(),
         dateString: submitTime.toLocaleDateString('es-ES'),
-        timeStart: startTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        timeStart: calculatedTimeStart,
         timeEnd: submitTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -158,7 +165,14 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   const dateStr = currentTime.toLocaleDateString('es-ES', { 
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
   });
-  const startStr = startTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  
+  let startStr = startTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  if (formData.turno === 'Mañana' || formData.turno === 'Jornada Completa') {
+    startStr = '08:00';
+  } else if (formData.turno === 'Tarde') {
+    startStr = '14:00';
+  }
+  
   const currentStr = currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
   return (
