@@ -111,9 +111,9 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         return;
       }
 
-      // Límite de seguridad para imágenes crudas 25MB
-      if (isImage && file.size > 25 * 1024 * 1024) {
-        alert("La imagen excede el límite extremo de 25MB. Por favor, redúcela un poco antes de subirla.");
+      // Límite extremo de seguridad para evitar cuelgues del navegador (300MB)
+      if (isImage && file.size > 300 * 1024 * 1024) {
+        alert("La imagen es tan pesada que tu navegador se colgaría intentando comprimirla (máximo 300MB permitidos).");
         e.target.value = null;
         return;
       }
