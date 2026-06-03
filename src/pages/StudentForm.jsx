@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, FileText } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Función mágica para aplastar imágenes gigantes de Canva sin perder mucha calidad visual
 const compressImage = (file) => {
@@ -167,20 +166,34 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     setIsSubmitting(true);
     
     try {
+      const hasFiles = activities.some(act => act.rawFile);
+      if (hasFiles) {
+        setUploadStatus('Subiendo archivos pesados (videos/documentos), no cierres la ventana...');
+      }
+
       const processedActivities = await Promise.all(activities.map(async (act) => {
         let finalUrl = null;
 
         if (act.rawFile) {
-          const timestamp = Date.now();
-          const safeName = act.rawFile.name.replace(/[^a-zA-Z0-9.]/g, '_');
-          const storageRef = ref(storage, `evidencias/${timestamp}_${safeName}`);
-          
+          const cloudFormData = new FormData();
+          cloudFormData.append('file', act.rawFile);
+          cloudFormData.append('upload_preset', 'ldqkrdsr');
+
           try {
-            const snapshot = await uploadBytes(storageRef, act.rawFile);
-            finalUrl = await getDownloadURL(snapshot.ref);
-          } catch (storageErr) {
-            console.error("Error subiendo a Storage:", storageErr);
-            throw new Error("No se pudo subir el archivo " + act.rawFile.name + ". Revisa los permisos de Storage.");
+            const res = await fetch('https://api.cloudinary.com/v1_1/dqrc7vc9y/auto/upload', {
+              method: 'POST',
+              body: cloudFormData
+            });
+            const data = await res.json();
+            
+            if (data.secure_url) {
+              finalUrl = data.secure_url;
+            } else {
+              throw new Error("No se recibió URL de Cloudinary");
+            }
+          } catch (cloudErr) {
+            console.error("Error subiendo a Cloudinary:", cloudErr);
+            throw new Error("No se pudo subir el archivo " + act.rawFile.name + ". Revisa tu conexión a internet.");
           }
         }
 
@@ -233,12 +246,15 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     } catch (error) {
       console.error("Error subiendo reporte: ", error);
       if (error.message && error.message.includes("payload is too large")) {
-         alert("Hubo un error: Los archivos adjuntos son muy pesados para la base de datos gratuita. Por favor reduce su tamaño.");
+         alert("Hubo un error: Los archivos adjuntos son muy pesados para la base de datos. Por favor reduce su tamaño.");
+      } else if (error.message) {
+         alert("Error: " + error.message);
       } else {
          alert("Hubo un error al enviar el reporte. Asegúrate de tener conexión.");
       }
     } finally {
       setIsSubmitting(false);
+      setUploadStatus('');
     }
   };
 
@@ -496,9 +512,26 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               {isGeneratingPDF ? <Loader className="animate-spin" size={18} /> : <FileDown size={18} />}
               Descargar Copia
             </button>
-            <button type="submit" disabled={isSubmitting} className="btn btn-primary hide-on-pdf">
-              {isSubmitting ? <Loader className="animate-spin" size={18} /> : <Send size={18} />}
-              {isSubmitting ? 'Enviando...' : 'Enviar Reporte'}
+          </div>
+          
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ flex: 1, padding: '1rem', fontSize: '1.1rem', justifyContent: 'center' }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader className="animate-spin" size={24} /> 
+                  {uploadStatus || 'Enviando...'}
+                </>
+              ) : (
+                <>
+                  <Send size={24} /> 
+                  {isEncargadoMode ? 'Enviar al Administrador' : 'Enviar a Encargado'}
+                </>
+              )}
             </button>
           </div>
 
