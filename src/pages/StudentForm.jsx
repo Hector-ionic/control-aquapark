@@ -50,6 +50,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   const [startTime] = useState(new Date());
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
   const [formData, setFormData] = useState({
