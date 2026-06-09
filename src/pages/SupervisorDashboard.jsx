@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Mail, Key, Search, FileText, Eye, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon } from 'lucide-react';
+import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import StudentForm from './StudentForm';
 
 const USERS = {
@@ -54,6 +54,7 @@ export default function SupervisorDashboard() {
   const [filterTurno, setFilterTurno] = useState('Todos');
   
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Analytics
   const stats = useMemo(() => {
@@ -75,7 +76,7 @@ export default function SupervisorDashboard() {
   // CSV Export
   const exportCSV = () => {
     const headers = ['Nombre', 'Carrera', 'Institución', 'Turno', 'Fecha', 'Hora Inicio', 'Hora Envío', 'Actividades', 'Conclusión'];
-    const rows = reports.map(r => [
+    const rows = filteredReports.map(r => [
       r.student || '',
       r.career || '',
       r.institution || '',
@@ -113,15 +114,21 @@ export default function SupervisorDashboard() {
   const fetchReports = async (supervisorName) => {
     setIsLoading(true);
     try {
-      const q = query(
-        collection(db, "reports"),
-        where("supervisor", "==", supervisorName)
-      );
+      // Obtenemos todos y filtramos en cliente para evitar problemas de mayúsculas/minúsculas históricos
+      const q = query(collection(db, "reports"));
       
       const querySnapshot = await getDocs(q);
       const fetchedReports = [];
+      const isGlobalAdmin = currentUser?.role === 'Administrador';
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
+        if (data.isDeleted === true) return; // SOFT DELETE FILTER
+        
+        const dbSupervisor = (data.supervisor || '').toLowerCase().trim();
+        // Si no es admin, solo ve los suyos (ignorando mayúsculas)
+        if (!isGlobalAdmin && dbSupervisor !== supervisorName) return;
+
         if (data.turno === 'Mañana' || data.turno === 'Jornada Completa') data.timeStart = '08:00';
         else if (data.turno === 'Tarde') data.timeStart = '14:00';
         fetchedReports.push({ id: doc.id, ...data });
@@ -143,9 +150,9 @@ export default function SupervisorDashboard() {
 
   const handleDeleteReport = async (reportId, e) => {
     e.stopPropagation(); // Evitar abrir el detalle
-    if (window.confirm("¿Estás seguro de que quieres eliminar este reporte permanentemente? Esta acción no se puede deshacer.")) {
+    if (window.confirm("¿Estás seguro de que quieres ocultar/eliminar este reporte de la bandeja?")) {
       try {
-        await deleteDoc(doc(db, "reports", reportId));
+        await updateDoc(doc(db, "reports", reportId), { isDeleted: true });
         setReports(reports.filter(r => r.id !== reportId));
         if (selectedReport && selectedReport.id === reportId) {
            setSelectedReport(null);
@@ -195,13 +202,13 @@ export default function SupervisorDashboard() {
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="input-group">
               <label>Usuario / Encargado</label>
-              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0, 10, 20, 0.8)', border: '1px solid rgba(0, 240, 255, 0.3)', padding: '0 0.8rem', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', padding: '0 0.8rem', borderRadius: 'var(--radius-md)' }}>
                 <Mail size={18} color="var(--text-muted)" />
                 <select 
                   required
                   value={loginData.username}
                   onChange={e => setLoginData({...loginData, username: e.target.value})}
-                  style={{ border: 'none', background: 'transparent', boxShadow: 'none', width: '100%', padding: '0.8rem 0.5rem', cursor: 'pointer', outline: 'none' }}
+                  style={{ border: 'none', background: 'transparent', boxShadow: 'none', width: '100%', padding: '0.85rem 0.5rem', cursor: 'pointer', outline: 'none', color: 'var(--text-main)' }}
                 >
                   <option value="" disabled>Selecciona tu perfil...</option>
                   <option value="hector calle">Hector Calle</option>
@@ -216,16 +223,19 @@ export default function SupervisorDashboard() {
             
             <div className="input-group">
               <label>Contraseña</label>
-              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0, 10, 20, 0.8)', border: '1px solid rgba(0, 240, 255, 0.3)', padding: '0 0.8rem', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', padding: '0 0.8rem', borderRadius: 'var(--radius-md)' }}>
                 <Key size={18} color="var(--text-muted)" />
                 <input 
-                  type="password" 
+                  type={showPassword ? 'text' : 'password'} 
                   required
                   placeholder="••••••••"
                   value={loginData.password}
                   onChange={e => setLoginData({...loginData, password: e.target.value})}
-                  style={{ border: 'none', background: 'transparent', boxShadow: 'none' }}
+                  style={{ border: 'none', background: 'transparent', boxShadow: 'none', color: 'var(--text-main)' }}
                 />
+                <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
             
@@ -367,13 +377,13 @@ export default function SupervisorDashboard() {
                 const fileName = act.fileName || `evidencia_actividad_${i+1}`;
 
                 return (
-                  <div key={i} style={{ background: 'rgba(0,0,0,0.1)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-border)' }}>
+                  <div key={i} style={{ background: 'var(--surface-secondary)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-border)' }}>
                     <h4 style={{ marginBottom: '0.5rem' }}>Actividad #{i + 1}</h4>
-                    <p>{act.description}</p>
+                    <p style={{ color: 'var(--text-main)' }}>{act.description}</p>
                     
                     {isImage && fileSource && (
-                      <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)', display: 'inline-block' }}>
-                        <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem' }}>Evidencia Fotográfica:</p>
+                      <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--surface)', borderRadius: 'var(--radius-md)', display: 'inline-block', border: '1px solid var(--surface-border)' }}>
+                        <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--text-main)' }}>Evidencia Fotográfica:</p>
                         <img src={fileSource} alt={`Evidencia ${i+1}`} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px' }} />
                       </div>
                     )}
@@ -419,7 +429,7 @@ export default function SupervisorDashboard() {
             </div>
           </div>
 
-          <div style={{ background: 'rgba(0, 240, 255, 0.05)', padding: '1.5rem', border: '1px solid rgba(0, 240, 255, 0.2)', borderLeft: '3px solid var(--primary)' }}>
+          <div style={{ background: 'var(--surface-secondary)', padding: '1.5rem', border: '1px solid var(--surface-border)', borderLeft: '3px solid var(--primary)', borderRadius: 'var(--radius-md)' }}>
             <h3 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Conclusión</h3>
             <p style={{ margin: 0, color: 'var(--text-main)', fontStyle: 'italic' }}>"{selectedReport.conclusion}"</p>
           </div>
@@ -430,9 +440,9 @@ export default function SupervisorDashboard() {
   }
 
   const statCardStyle = {
-    flex: '1 1 150px', padding: '1.2rem', background: 'rgba(0, 240, 255, 0.05)',
-    border: '1px solid rgba(0, 240, 255, 0.2)', textAlign: 'center',
-    clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))'
+    flex: '1 1 150px', padding: '1.2rem', background: 'var(--surface-secondary)',
+    border: '1px solid var(--surface-border)', textAlign: 'center',
+    borderRadius: 'var(--radius-md)'
   };
 
   if (view === 'compose') {
@@ -503,20 +513,20 @@ export default function SupervisorDashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <h3 style={{ margin: 0 }}>Reportes Recientes</h3>
           <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0, 10, 20, 0.8)', border: '1px solid rgba(0, 240, 255, 0.3)', padding: '0 0.8rem', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', padding: '0 0.8rem', borderRadius: 'var(--radius-md)' }}>
               <Search size={16} color="var(--primary)" />
               <input 
                 type="text" 
                 placeholder="Buscar remitente..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ border: 'none', background: 'transparent', boxShadow: 'none', padding: '0.5rem', fontSize: '0.9rem', width: '180px', clipPath: 'none' }}
+                style={{ border: 'none', background: 'transparent', boxShadow: 'none', padding: '0.5rem', fontSize: '0.9rem', width: '180px' }}
               />
             </div>
             <select 
               value={filterTurno} 
               onChange={(e) => setFilterTurno(e.target.value)}
-              style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem', background: 'rgba(0, 10, 20, 0.8)', border: '1px solid rgba(0, 240, 255, 0.3)', color: 'var(--primary-light)', cursor: 'pointer', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
+              style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', color: 'var(--text-main)', cursor: 'pointer', borderRadius: 'var(--radius-md)' }}
             >
               <option value="Todos">Todos los Turnos</option>
               <option value="Mañana">Mañana</option>
@@ -545,27 +555,27 @@ export default function SupervisorDashboard() {
               return (
               <div key={report.id} style={{ 
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                padding: '1rem 1.2rem', background: 'rgba(0, 15, 30, 0.8)', 
-                border: '1px solid rgba(0, 240, 255, 0.15)',
+                padding: '1rem 1.2rem', background: 'var(--surface)', 
+                border: '1px solid var(--surface-border)',
                 borderLeft: `3px solid ${turnoColor}`,
-                transition: 'var(--transition)',
-                clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)'
+                borderRadius: 'var(--radius-md)',
+                transition: 'var(--transition)'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', flex: 1 }} onClick={() => setSelectedReport(report)}>
-                  <div style={{ background: `${turnoColor}22`, padding: '0.7rem', border: `1px solid ${turnoColor}`, color: turnoColor }}>
+                  <div style={{ background: `${turnoColor}22`, padding: '0.7rem', border: `1px solid ${turnoColor}`, color: turnoColor, borderRadius: 'var(--radius-md)' }}>
                     <FileText size={22} />
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <h4 style={{ margin: 0, color: '#F8FAFC', fontSize: '1.05rem' }}>{report.student}</h4>
-                      {isNew && <span style={{ background: 'var(--primary)', color: '#030712', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px' }}>NUEVO</span>}
-                      {report.turno && <span style={{ color: turnoColor, fontSize: '0.7rem', border: `1px solid ${turnoColor}`, padding: '0.1rem 0.4rem', fontWeight: 600 }}>{report.turno}</span>}
+                      <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem' }}>{report.student}</h4>
+                      {isNew && <span style={{ background: 'var(--primary)', color: '#ffffff', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>NUEVO</span>}
+                      {report.turno && <span style={{ color: turnoColor, fontSize: '0.7rem', border: `1px solid ${turnoColor}`, padding: '0.1rem 0.4rem', fontWeight: 600, borderRadius: '4px' }}>{report.turno}</span>}
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: '#94A3B8', display: 'flex', gap: '0.8rem', marginTop: '0.3rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '0.8rem', marginTop: '0.3rem' }}>
                       <span>{report.career}</span>
-                      <span style={{ color: 'rgba(0,240,255,0.4)' }}>|</span>
+                      <span style={{ color: 'var(--surface-border)' }}>|</span>
                       <span>{report.dateString}</span>
-                      <span style={{ color: 'rgba(0,240,255,0.4)' }}>|</span>
+                      <span style={{ color: 'var(--surface-border)' }}>|</span>
                       <span>{report.timeStart || '--:--'} → {report.timeEnd || '--:--'}</span>
                     </div>
                   </div>

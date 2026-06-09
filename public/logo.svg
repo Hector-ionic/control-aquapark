@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Water wave shield -->
+  <path d="M60 8L16 30v30c0 28 18.7 54.2 44 60 25.3-5.8 44-32 44-60V30L60 8z" fill="none" stroke="#0066cc" stroke-width="4" stroke-linejoin="round"/>
+  
+  <!-- Inner wave 1 -->
+  <path d="M35 58c5-8 10-8 15 0s10 8 15 0 10-8 15 0" stroke="#0a84ff" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+  
+  <!-- Inner wave 2 -->
+  <path d="M35 72c5-8 10-8 15 0s10 8 15 0 10-8 15 0" stroke="#0066cc" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+  
+  <!-- Water drop -->
+  <path d="M60 32c0 0-12 14-12 22a12 12 0 0024 0c0-8-12-22-12-22z" fill="#0a84ff" opacity="0.85"/>
+  <circle cx="55" cy="52" r="2.5" fill="white" opacity="0.7"/>
+</svg>

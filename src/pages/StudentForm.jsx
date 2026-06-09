@@ -71,6 +71,28 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     return () => clearInterval(timer);
   }, []);
 
+  // CARGAR AUTOGUARDADO
+  useEffect(() => {
+    const savedForm = localStorage.getItem('aquapark_draft_form');
+    const savedActivities = localStorage.getItem('aquapark_draft_activities');
+    if (savedForm) {
+      try { setFormData(JSON.parse(savedForm)); } catch(e){}
+    }
+    if (savedActivities) {
+      try { setActivities(JSON.parse(savedActivities)); } catch(e){}
+    }
+  }, []);
+
+  // GUARDAR AUTOGUARDADO
+  useEffect(() => {
+    localStorage.setItem('aquapark_draft_form', JSON.stringify(formData));
+    const safeActivities = activities.map(act => {
+      const { rawFile, ...rest } = act; // Removemos rawFile porque no se puede guardar en localStorage
+      return rest;
+    });
+    localStorage.setItem('aquapark_draft_activities', JSON.stringify(safeActivities));
+  }, [formData, activities]);
+
   const handleAddActivity = () => {
     setActivities([
       ...activities,
@@ -143,27 +165,43 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   };
 
   const exportPDF = () => {
-    setIsGeneratingPDF(true);
-    const element = document.getElementById('pdf-formal-template');
-    
-    const opt = {
-      margin:       0.5,
-      filename:     `Informe_${formData.name || 'Pasante'}_${new Date().toISOString().split('T')[0]}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
+    return new Promise((resolve) => {
+      setIsGeneratingPDF(true);
+      const element = document.getElementById('pdf-formal-template');
+      
+      const opt = {
+        margin:       0.5,
+        filename:     `Informe_${formData.name || 'Pasante'}_${new Date().toISOString().split('T')[0]}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
 
-    element.style.display = 'block';
+      element.style.display = 'block';
 
-    html2pdf().set(opt).from(element).save().then(() => {
-      element.style.display = 'none';
-      setIsGeneratingPDF(false);
+      html2pdf().set(opt).from(element).save().then(() => {
+        element.style.display = 'none';
+        setIsGeneratingPDF(false);
+        resolve();
+      });
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // VALIDACIONES ESTRICTAS ANTIBASURA
+    if (formData.conclusion.trim().length < 10) {
+      alert("❌ Tu conclusión es demasiado corta. Por favor escribe al menos 10 caracteres resumiendo tu día.");
+      return;
+    }
+
+    const hasValidActivity = activities.some(act => act.description.trim().length > 5 || act.rawFile);
+    if (!hasValidActivity) {
+      alert("❌ Reporte vacío: Debes escribir al menos una actividad válida (más de 5 letras) o subir un archivo adjunto.");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -235,7 +273,15 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
       await addDoc(collection(db, "reports"), reportData);
 
-      alert(isEncargadoMode ? "¡Tu informe ha sido enviado al Administrador exitosamente!" : "¡Reporte enviado exitosamente al encargado!");
+      // LIMPIAR AUTOGUARDADO TRAS ÉXITO
+      localStorage.removeItem('aquapark_draft_form');
+      localStorage.removeItem('aquapark_draft_activities');
+
+      const wantsPDF = window.confirm("¡Reporte enviado con éxito al encargado!\n\n¿Deseas descargar tu propio informe en formato PDF para tus registros personales antes de que se limpie la pantalla?");
+      
+      if (wantsPDF) {
+        await exportPDF();
+      }
       
       if (isEncargadoMode && onCancel) {
         onCancel();
@@ -381,7 +427,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                 </div>
                 <div className="input-group">
                   <label>Carrera / Especialidad</label>
-                  <select required value={formData.career} onChange={e => setFormData({...formData, career: e.target.value})} style={{ padding: '0.8rem', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 10, 20, 0.8)', color: 'var(--primary-light)' }}>
+                  <select required value={formData.career} onChange={e => setFormData({...formData, career: e.target.value})}>
                     <option value="" disabled>Seleccione una carrera...</option>
                     <option value="Ingeniería en Sistemas">Ingeniería en Sistemas</option>
                     <option value="Ingeniería Comercial">Ingeniería Comercial</option>
@@ -398,7 +444,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                 </div>
                 <div className="input-group">
                   <label>Enviar a (Encargado)</label>
-                  <select required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})} style={{ padding: '0.8rem', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 10, 20, 0.8)', color: 'var(--primary-light)' }}>
+                  <select required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}>
                     <option value="Hector Calle">Hector Calle</option>
                     <option value="Lizeth de la Cruz">Lizeth de la Cruz</option>
                     <option value="Jhuliana Quispe">Jhuliana Quispe</option>
@@ -411,17 +457,17 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               <>
                 <div className="input-group">
                   <label>Nombre del Remitente</label>
-                  <input type="text" disabled value={formData.name} style={{ background: 'rgba(0, 10, 20, 0.4)', color: 'var(--text-muted)' }} />
+                  <input type="text" disabled value={formData.name} />
                 </div>
                 <div className="input-group">
                   <label>Destinatario Fijo</label>
-                  <input type="text" disabled value="RR.HH (Administrador)" style={{ background: 'rgba(0, 10, 20, 0.4)', color: 'var(--text-muted)' }} />
+                  <input type="text" disabled value="RR.HH (Administrador)" />
                 </div>
               </>
             )}
             <div className="input-group">
               <label>Turno</label>
-              <select required value={formData.turno} onChange={e => setFormData({...formData, turno: e.target.value})} style={{ padding: '0.8rem', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 10, 20, 0.8)', color: 'var(--primary-light)' }}>
+              <select required value={formData.turno} onChange={e => setFormData({...formData, turno: e.target.value})}>
                 <option value="" disabled>Seleccione turno...</option>
                 <option value="Mañana">Mañana</option>
                 <option value="Tarde">Tarde</option>
@@ -481,10 +527,10 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                   </div>
                   
                   <div className="input-group" style={{ flex: 1, minWidth: '200px' }}>
-                    <label>Enlace de Referencia (Opcional)</label>
-                    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0, 10, 20, 0.8)', border: '1px solid rgba(0, 240, 255, 0.3)', padding: '0 0.8rem', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
-                      <LinkIcon size={18} color="var(--text-muted)" />
-                      <input type="url" placeholder="https://..." value={act.link} onChange={e => handleActivityChange(act.id, 'link', e.target.value)} style={{ border: 'none', background: 'transparent', boxShadow: 'none' }} />
+                    <label>Enlace Externo (Opcional)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', padding: '0 0.8rem', borderRadius: 'var(--radius-md)' }}>
+                      <LinkIcon size={16} color="var(--text-muted)" />
+                      <input type="url" placeholder="https://..." value={act.link} onChange={e => handleActivityChange(act.id, 'link', e.target.value)} style={{ border: 'none', background: 'transparent', boxShadow: 'none', color: 'var(--text-main)' }} />
                     </div>
                   </div>
                 </div>
