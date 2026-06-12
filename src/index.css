@@ -264,6 +264,28 @@ textarea {
   background: rgba(255, 59, 48, 0.2);
 }
 
+.btn-solid-danger {
+  background: var(--error);
+  color: #ffffff;
+}
+
+.btn-solid-danger:hover:not(:disabled) {
+  background: #e0352b;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-solid-warning {
+  background: var(--warning);
+  color: #1d1d1f;
+}
+
+.btn-solid-warning:hover:not(:disabled) {
+  background: #e68f09;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;

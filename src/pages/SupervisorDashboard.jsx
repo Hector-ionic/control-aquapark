@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon } from 'lucide-react';
+import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, ArrowLeft } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -55,6 +55,7 @@ export default function SupervisorDashboard() {
   
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
 
   // Analytics
   const stats = useMemo(() => {
@@ -69,9 +70,10 @@ export default function SupervisorDashboard() {
   // Filtered reports
   const filteredReports = useMemo(() => {
     return reports
+      .filter(r => showTrash ? r.isDeleted === true : (r.isDeleted !== true))
       .filter(r => r.student?.toLowerCase().includes(searchTerm.toLowerCase()))
       .filter(r => filterTurno === 'Todos' || r.turno === filterTurno);
-  }, [reports, searchTerm, filterTurno]);
+  }, [reports, searchTerm, filterTurno, showTrash]);
 
   // CSV Export
   const exportCSV = () => {
@@ -124,7 +126,8 @@ export default function SupervisorDashboard() {
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.isDeleted === true) return; // SOFT DELETE FILTER
+        // Si NO es Admin global, ignoramos por completo los borrados
+        if (data.isDeleted === true && !isGlobalAdmin) return;
         
         const dbSupervisor = (data.supervisor || '').toLowerCase().trim();
         // Si no es admin, solo ve los suyos (ignorando mayúsculas)
@@ -151,10 +154,10 @@ export default function SupervisorDashboard() {
 
   const handleDeleteReport = async (reportId, e) => {
     e.stopPropagation(); // Evitar abrir el detalle
-    if (window.confirm("¿Estás seguro de que quieres ocultar/eliminar este reporte de la bandeja?")) {
+    if (window.confirm("¿Estás seguro de que quieres enviar este reporte a la Papelera? (El Administrador podrá recuperarlo)")) {
       try {
         await updateDoc(doc(db, "reports", reportId), { isDeleted: true });
-        setReports(reports.filter(r => r.id !== reportId));
+        setReports(reports.map(r => r.id === reportId ? { ...r, isDeleted: true } : r));
         if (selectedReport && selectedReport.id === reportId) {
            setSelectedReport(null);
         }
@@ -162,6 +165,20 @@ export default function SupervisorDashboard() {
         console.error("Error al eliminar:", err);
         alert("Hubo un error al eliminar el reporte.");
       }
+    }
+  };
+
+  const handleRestoreReport = async (reportId, e) => {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, "reports", reportId), { isDeleted: false });
+      setReports(reports.map(r => r.id === reportId ? { ...r, isDeleted: false } : r));
+      if (selectedReport && selectedReport.id === reportId) {
+         setSelectedReport(null);
+      }
+    } catch (err) {
+      console.error("Error restaurando:", err);
+      alert("Hubo un error al restaurar el reporte.");
     }
   };
 
@@ -343,8 +360,8 @@ export default function SupervisorDashboard() {
 
         {/* UI PRINCIPAL DEL DETALLE */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <button onClick={() => setSelectedReport(null)} className="btn btn-secondary">
-            Volver a la Bandeja
+          <button onClick={() => setSelectedReport(null)} className="btn btn-solid-warning">
+            <ArrowLeft size={18} /> Volver a la Bandeja
           </button>
           
           <button onClick={exportPDF} disabled={isGeneratingPDF} className="btn btn-primary">
@@ -356,13 +373,19 @@ export default function SupervisorDashboard() {
         <div style={{ borderBottom: '2px solid var(--primary-light)', paddingBottom: '1rem', marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h2>Reporte de {selectedReport.student}</h2>
+              <h2>Reporte de {selectedReport.student} {selectedReport.isDeleted ? '(EN PAPELERA)' : ''}</h2>
               <p style={{ margin: 0 }}><strong>Carrera/Área:</strong> {selectedReport.career} | <strong>Institución:</strong> {selectedReport.institution}</p>
               <p style={{ margin: 0 }}><strong>Fecha:</strong> {selectedReport.dateString} | <strong>Turno:</strong> {selectedReport.turno || 'N/A'} | <strong>Horario:</strong> Inicio {selectedReport.timeStart || 'N/A'} - Envío {selectedReport.timeEnd || 'N/A'}</p>
             </div>
-            <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-danger" style={{ padding: '0.6rem 1rem' }}>
-              <Trash2 size={18} /> Eliminar Reporte
-            </button>
+            {selectedReport.isDeleted ? (
+              <button onClick={(e) => handleRestoreReport(selectedReport.id, e)} className="btn btn-primary" style={{ padding: '0.6rem 1rem' }}>
+                <LinkIcon size={18} /> Restaurar Reporte
+              </button>
+            ) : (
+              <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-danger" style={{ padding: '0.6rem 1rem' }}>
+                <Trash2 size={18} /> Enviar a Papelera
+              </button>
+            )}
           </div>
         </div>
 
@@ -454,8 +477,8 @@ export default function SupervisorDashboard() {
             <h2 style={{ marginBottom: '0.2rem' }}>Redactar Informe para RR.HH</h2>
             <p style={{ margin: 0 }}>Completa tu reporte de encargado. Será enviado directamente al Administrador.</p>
           </div>
-          <button className="btn btn-secondary" onClick={() => setView('inbox')}>
-            Volver a Bandeja
+          <button className="btn btn-solid-warning" onClick={() => setView('inbox')}>
+            <ArrowLeft size={18} /> Volver a Bandeja
           </button>
         </div>
         <StudentForm isEncargadoMode={true} encargadoName={currentUser.displayName} onCancel={() => setView('inbox')} />
@@ -480,7 +503,7 @@ export default function SupervisorDashboard() {
           <button className="btn btn-primary" onClick={exportCSV} style={{ padding: '0.5rem 1rem' }}>
             <Download size={16} /> EXPORTAR CSV
           </button>
-          <button className="btn btn-secondary" onClick={() => setCurrentUser(null)}>
+          <button className="btn btn-solid-danger" onClick={() => setCurrentUser(null)}>
             <LogOut size={18} /> SALIR
           </button>
         </div>
@@ -534,6 +557,16 @@ export default function SupervisorDashboard() {
               <option value="Tarde">Tarde</option>
               <option value="Jornada Completa">Jornada Completa</option>
             </select>
+            {currentUser?.role === 'Administrador' && (
+              <button 
+                onClick={() => setShowTrash(!showTrash)} 
+                className={`btn ${showTrash ? 'btn-danger' : 'btn-secondary'}`} 
+                style={{ padding: '0.4rem 0.8rem' }}
+                title="Ver reportes en papelera"
+              >
+                <Trash2 size={16} /> {showTrash ? 'Salir de Papelera' : 'Papelera'}
+              </button>
+            )}
             <button onClick={() => fetchReports(currentUser.id)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem' }}>
               ACTUALIZAR
             </button>
@@ -586,9 +619,15 @@ export default function SupervisorDashboard() {
                   <button className="btn btn-secondary" onClick={() => setSelectedReport(report)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
                     <Eye size={16} /> VER
                   </button>
-                  <button className="btn btn-danger" onClick={(e) => handleDeleteReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Eliminar permanentemente">
-                    <Trash2 size={16} />
-                  </button>
+                  {report.isDeleted ? (
+                    <button className="btn btn-primary" onClick={(e) => handleRestoreReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Restaurar de la Papelera">
+                      <LinkIcon size={16} />
+                    </button>
+                  ) : (
+                    <button className="btn btn-danger" onClick={(e) => handleDeleteReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Mover a la Papelera">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
             )})}
