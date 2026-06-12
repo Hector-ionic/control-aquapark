@@ -196,9 +196,16 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       return;
     }
 
-    const hasValidActivity = activities.some(act => act.description.trim().length > 5 || act.rawFile);
+    const hasValidActivity = activities.some(act => act.description.trim().length > 5 || act.rawFile || act.fileBase64);
     if (!hasValidActivity) {
       alert("❌ Reporte vacío: Debes escribir al menos una actividad válida (más de 5 letras) o subir un archivo adjunto.");
+      return;
+    }
+
+    // Detectar si se perdió el archivo original por recargar la página (autoguardado)
+    const lostFiles = activities.filter(act => act.fileName && !act.rawFile && !act.fileBase64);
+    if (lostFiles.length > 0) {
+      alert(`⚠️ ARCHIVOS BORRADOS POR RECARGA:\nTu navegador borró los siguientes documentos por seguridad al recargar la página: ${lostFiles.map(l => l.fileName).join(', ')}\n\nPor favor, VUELVE A SELECCIONARLOS haciendo clic en el botón de adjuntar antes de enviar.`);
       return;
     }
 
@@ -213,9 +220,9 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       const processedActivities = await Promise.all(activities.map(async (act) => {
         let finalUrl = null;
 
-        if (act.rawFile) {
+        if (act.rawFile || act.fileBase64) {
           const cloudFormData = new FormData();
-          cloudFormData.append('file', act.rawFile);
+          cloudFormData.append('file', act.rawFile || act.fileBase64);
           cloudFormData.append('upload_preset', 'ldqkrdsr');
 
           try {
@@ -518,10 +525,10 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                       </div>
                     )}
                     
-                    {act.fileBase64 && (act.fileType === 'pdf' || act.fileType === 'word') && (
+                    {act.fileName && act.fileType !== 'image' && (
                       <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <FileText size={24} color={act.fileType === 'word' ? '#2563eb' : 'var(--primary)'} />
-                        <span style={{ fontWeight: 500 }}>Documento {act.fileType === 'word' ? 'Word' : 'PDF'} listo ({act.fileName})</span>
+                        <FileText size={24} color={act.fileType === 'word' ? '#2563eb' : act.fileType === 'video' ? '#ff3b30' : 'var(--primary)'} />
+                        <span style={{ fontWeight: 500 }}>Archivo {act.fileType === 'word' ? 'Word' : act.fileType === 'pdf' ? 'PDF' : act.fileType === 'video' ? 'Video' : 'Adjunto'} listo ({act.fileName})</span>
                       </div>
                     )}
                   </div>

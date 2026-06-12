@@ -119,7 +119,8 @@ export default function SupervisorDashboard() {
       
       const querySnapshot = await getDocs(q);
       const fetchedReports = [];
-      const isGlobalAdmin = currentUser?.role === 'Administrador';
+      const userObj = USERS[supervisorName] || {};
+      const isGlobalAdmin = userObj.role === 'Administrador';
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
