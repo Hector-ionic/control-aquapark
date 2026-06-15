@@ -102,12 +102,8 @@ export default function SupervisorDashboard() {
   const handleDownloadFile = async (e, url, fileName) => {
     e.preventDefault();
     try {
-      if (url.includes('cloudinary.com')) {
-        const downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
-        window.open(downloadUrl, '_blank');
-        return;
-      }
       const response = await fetch(url);
+      if (!response.ok) throw new Error('Error al descargar el archivo');
       const blob = await response.blob();
       const objectUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
