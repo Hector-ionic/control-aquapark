@@ -101,8 +101,16 @@ export default function SupervisorDashboard() {
 
   const handleDownloadFile = async (e, url, fileName) => {
     e.preventDefault();
+    
+    // Si la URL viene de Cloudinary y tiene fl_attachment, lo removemos para evitar el Error 401
+    let safeUrl = url;
+    if (safeUrl.includes('cloudinary.com')) {
+      safeUrl = safeUrl.replace(/fl_attachment(:[^/]*)?\//g, '');
+      safeUrl = safeUrl.replace(/\/fl_attachment\//g, '/');
+    }
+
     try {
-      const response = await fetch(url);
+      const response = await fetch(safeUrl);
       if (!response.ok) throw new Error('Error al descargar el archivo');
       const blob = await response.blob();
       const objectUrl = window.URL.createObjectURL(blob);
@@ -115,7 +123,8 @@ export default function SupervisorDashboard() {
       window.URL.revokeObjectURL(objectUrl);
     } catch (error) {
       console.error('Error downloading file:', error);
-      window.open(url, '_blank');
+      // Fallback seguro usando la URL limpia
+      window.open(safeUrl, '_blank');
     }
   };
 
