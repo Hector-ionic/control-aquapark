@@ -99,6 +99,30 @@ export default function SupervisorDashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadFile = async (e, url, fileName) => {
+    e.preventDefault();
+    try {
+      if (url.includes('cloudinary.com')) {
+        const downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
+        window.open(downloadUrl, '_blank');
+        return;
+      }
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      window.open(url, '_blank');
+    }
+  };
+
   const handleLogin = (e) => {
     e.preventDefault();
     const userKey = loginData.username.toLowerCase().trim();
@@ -421,23 +445,26 @@ export default function SupervisorDashboard() {
 
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
                       {isImage && fileSource && (
-                        <a href={fileSource} download={`${fileName}.jpg`} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+                        <a href={fileSource} onClick={(e) => handleDownloadFile(e, fileSource, `${fileName}.jpg`)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: 'pointer' }}>
                           <ImageIcon size={16} /> Descargar Imagen
                         </a>
                       )}
                       
                       {isDoc && fileSource && (
-                        <a href={fileSource} download={fileName} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+                        <a href={fileSource} onClick={(e) => handleDownloadFile(e, fileSource, fileName)} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: 'pointer' }}>
                           <FileDown size={16} /> Descargar {act.fileType === 'word' ? 'Word' : 'PDF'} Adjunto
                         </a>
                       )}
 
                       {isVideo && fileSource && (
-                        <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem' }}>Video Adjunto:</p>
                           <video controls src={fileSource} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            Tu navegador no soporta video. <a href={fileSource} target="_blank" rel="noreferrer">Descargar</a>
+                            Tu navegador no soporta video.
                           </video>
+                          <a href={fileSource} onClick={(e) => handleDownloadFile(e, fileSource, `${fileName}.mp4`)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                            <FileDown size={16} /> Descargar Video
+                          </a>
                         </div>
                       )}
 
