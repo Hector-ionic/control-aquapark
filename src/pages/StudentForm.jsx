@@ -197,6 +197,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!formData.name.trim() || !formData.career.trim() || !formData.institution.trim() || !formData.turno) {
+      alert("❌ Faltan datos: Por favor llena tu Nombre, Carrera, Institución y Turno.");
+      return;
+    }
+
     if (!formData.supervisor) {
       alert("❌ ¡ALTO! Debes seleccionar a qué Encargado le enviarás este informe.");
       return;
@@ -204,13 +209,14 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
     // VALIDACIONES ESTRICTAS ANTIBASURA
     if (formData.conclusion.trim().length < 10) {
-      alert("❌ Tu conclusión es demasiado corta. Por favor escribe al menos 10 caracteres resumiendo tu día.");
+      alert("❌ Tu conclusión es demasiado corta. Por favor escribe al menos 10 letras resumiendo tu día.");
       return;
     }
 
-    const hasValidActivity = activities.some(act => act.description.trim().length > 5 || act.rawFile || act.fileBase64);
-    if (!hasValidActivity) {
-      alert("❌ Reporte vacío: Debes escribir al menos una actividad válida (más de 5 letras) o subir un archivo adjunto.");
+    // Verificar que TODAS las actividades agregadas estén llenas
+    const emptyActivityIndex = activities.findIndex(act => act.description.trim().length < 10);
+    if (emptyActivityIndex !== -1) {
+      alert(`❌ La Actividad #${emptyActivityIndex + 1} está vacía o es muy corta. Debes describir qué hiciste (mínimo 10 letras) o eliminar esa casilla con el botón del basurero si la agregaste por error.`);
       return;
     }
 
