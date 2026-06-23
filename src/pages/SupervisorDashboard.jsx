@@ -187,8 +187,6 @@ export default function SupervisorDashboard() {
     // Dejamos la función para no romper el botón ACTUALIZAR
     console.log("Actualización en tiempo real activa.");
   };
-    // Ya no usamos getDocs manual
-  };
 
   const handleDeleteReport = async (reportId, e) => {
     e.stopPropagation(); // Evitar abrir el detalle

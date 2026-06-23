@@ -76,7 +76,14 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     const savedForm = localStorage.getItem('aquapark_draft_form');
     const savedActivities = localStorage.getItem('aquapark_draft_activities');
     if (savedForm) {
-      try { setFormData(JSON.parse(savedForm)); } catch(e){}
+      try { 
+        const parsedForm = JSON.parse(savedForm);
+        // FORZAR LIMPIEZA DEL AUTO-GUARDADO VIEJO PARA QUE NO SE VAYA A HECTOR POR DEFECTO
+        if (parsedForm.supervisor === 'Hector Calle' || parsedForm.supervisor === 'hector calle') {
+          parsedForm.supervisor = '';
+        }
+        setFormData(parsedForm); 
+      } catch(e){}
     }
     if (savedActivities) {
       try { setActivities(JSON.parse(savedActivities)); } catch(e){}
@@ -457,6 +464,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                 <div className="input-group">
                   <label>Enviar a (Encargado)</label>
                   <select required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}>
+                    <option value="" disabled>Seleccione a su Encargado...</option>
                     <option value="Hector Calle">Hector Calle</option>
                     <option value="Lizeth de la Cruz">Lizeth de la Cruz</option>
                     <option value="Jhuliana Quispe">Jhuliana Quispe</option>
