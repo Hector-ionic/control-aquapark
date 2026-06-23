@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, ArrowLeft } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import StudentForm from './StudentForm';
 
 const USERS = {
@@ -136,21 +136,21 @@ export default function SupervisorDashboard() {
     if (userObj && userObj.password === loginData.password) {
       setCurrentUser({ id: userKey, ...userObj });
       setError('');
-      fetchReports(userKey);
+      // fetchReports(userKey); -> Ya no es necesario, el useEffect escucha a currentUser
     } else {
       setError('Credenciales incorrectas. Intenta nuevamente.');
     }
   };
 
-  const fetchReports = async (supervisorName) => {
+  useEffect(() => {
+    if (!currentUser) return;
+    
     setIsLoading(true);
-    try {
-      // Obtenemos todos y filtramos en cliente para evitar problemas de mayúsculas/minúsculas históricos
-      const q = query(collection(db, "reports"));
-      
-      const querySnapshot = await getDocs(q);
+    const q = query(collection(db, "reports"));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedReports = [];
-      const userObj = USERS[supervisorName] || {};
+      const userObj = USERS[currentUser.id] || {};
       const isGlobalAdmin = userObj.role === 'Administrador';
 
       querySnapshot.forEach((doc) => {
@@ -160,7 +160,7 @@ export default function SupervisorDashboard() {
         
         const dbSupervisor = (data.supervisor || '').toLowerCase().trim();
         // Si no es admin, solo ve los suyos (ignorando mayúsculas)
-        if (!isGlobalAdmin && dbSupervisor !== supervisorName) return;
+        if (!isGlobalAdmin && dbSupervisor !== currentUser.id) return;
 
         if (data.turno === 'Mañana' || data.turno === 'Jornada Completa') data.timeStart = '08:00';
         else if (data.turno === 'Tarde') data.timeStart = '14:00';
@@ -173,12 +173,21 @@ export default function SupervisorDashboard() {
       });
 
       setReports(fetchedReports);
-    } catch (err) {
-      console.error("Error fetching reports:", err);
-      alert("Hubo un error al obtener los reportes.");
-    } finally {
       setIsLoading(false);
-    }
+    }, (error) => {
+      console.error("Error fetching real-time reports:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  const fetchReports = async (supervisorName) => {
+    // Ya no hacemos nada manual porque onSnapshot actualiza en tiempo real
+    // Dejamos la función para no romper el botón ACTUALIZAR
+    console.log("Actualización en tiempo real activa.");
+  };
+    // Ya no usamos getDocs manual
   };
 
   const handleDeleteReport = async (reportId, e) => {
@@ -406,14 +415,16 @@ export default function SupervisorDashboard() {
               <p style={{ margin: 0 }}><strong>Carrera/Área:</strong> {selectedReport.career} | <strong>Institución:</strong> {selectedReport.institution}</p>
               <p style={{ margin: 0 }}><strong>Fecha:</strong> {selectedReport.dateString} | <strong>Turno:</strong> {selectedReport.turno || 'N/A'} | <strong>Horario:</strong> Inicio {selectedReport.timeStart || 'N/A'} - Envío {selectedReport.timeEnd || 'N/A'}</p>
             </div>
-            {selectedReport.isDeleted ? (
-              <button onClick={(e) => handleRestoreReport(selectedReport.id, e)} className="btn btn-primary" style={{ padding: '0.6rem 1rem' }}>
-                <LinkIcon size={18} /> Restaurar Reporte
-              </button>
-            ) : (
-              <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-danger" style={{ padding: '0.6rem 1rem' }}>
-                <Trash2 size={18} /> Enviar a Papelera
-              </button>
+            {currentUser?.role === 'Administrador' && (
+              selectedReport.isDeleted ? (
+                <button onClick={(e) => handleRestoreReport(selectedReport.id, e)} className="btn btn-primary" style={{ padding: '0.6rem 1rem' }}>
+                  <LinkIcon size={18} /> Restaurar Reporte
+                </button>
+              ) : (
+                <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-danger" style={{ padding: '0.6rem 1rem' }}>
+                  <Trash2 size={18} /> Enviar a Papelera
+                </button>
+              )
             )}
           </div>
         </div>
@@ -651,14 +662,16 @@ export default function SupervisorDashboard() {
                   <button className="btn btn-secondary" onClick={() => setSelectedReport(report)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
                     <Eye size={16} /> VER
                   </button>
-                  {report.isDeleted ? (
-                    <button className="btn btn-primary" onClick={(e) => handleRestoreReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Restaurar de la Papelera">
-                      <LinkIcon size={16} />
-                    </button>
-                  ) : (
-                    <button className="btn btn-danger" onClick={(e) => handleDeleteReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Mover a la Papelera">
-                      <Trash2 size={16} />
-                    </button>
+                  {currentUser?.role === 'Administrador' && (
+                    report.isDeleted ? (
+                      <button className="btn btn-primary" onClick={(e) => handleRestoreReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Restaurar de la Papelera">
+                        <LinkIcon size={16} />
+                      </button>
+                    ) : (
+                      <button className="btn btn-danger" onClick={(e) => handleDeleteReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Mover a la Papelera">
+                        <Trash2 size={16} />
+                      </button>
+                    )
                   )}
                 </div>
               </div>

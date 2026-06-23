@@ -57,7 +57,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     name: isEncargadoMode ? encargadoName : '',
     career: isEncargadoMode ? 'Encargado de Área' : '',
     institution: isEncargadoMode ? 'Control AquaPark' : '',
-    supervisor: isEncargadoMode ? 'Administrador' : 'Hector Calle',
+    supervisor: isEncargadoMode ? 'Administrador' : '',
     turno: '',
     conclusion: ''
   });
@@ -189,6 +189,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.supervisor) {
+      alert("❌ ¡ALTO! Debes seleccionar a qué Encargado le enviarás este informe.");
+      return;
+    }
 
     // VALIDACIONES ESTRICTAS ANTIBASURA
     if (formData.conclusion.trim().length < 10) {
