@@ -473,7 +473,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                     <option value="" disabled>Seleccione a su Encargado...</option>
                     <option value="Hector Calle">Hector Calle</option>
                     <option value="Lizeth de la Cruz">Lizeth de la Cruz</option>
-                    <option value="Jhuliana Quispe">Jhuliana Quispe</option>
+                    <option value="Camila Alejo">Camila Alejo</option>
                     <option value="Alvaro Mendoza">Alvaro Mendoza</option>
                     <option value="Limbert Tito">Limbert Tito</option>
                   </select>

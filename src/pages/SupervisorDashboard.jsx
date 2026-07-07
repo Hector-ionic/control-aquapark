@@ -8,7 +8,7 @@ import StudentForm from './StudentForm';
 const USERS = {
   'hector calle': { role: 'Encargado', password: 'AquaPark#01', displayName: 'Hector Calle' },
   'lizeth de la cruz': { role: 'Encargado', password: 'AquaPark#02', displayName: 'Lizeth de la Cruz' },
-  'jhuliana quispe': { role: 'Encargado', password: 'AquaPark#03', displayName: 'Jhuliana Quispe' },
+  'camila alejo': { role: 'Encargado', password: 'AquaPark#03', displayName: 'Camila Alejo' },
   'alvaro mendoza': { role: 'Encargado', password: 'AquaPark#04', displayName: 'Alvaro Mendoza' },
   'limbert tito': { role: 'Encargado', password: 'AquaPark#05', displayName: 'Limbert Tito' },
   'administrador': { role: 'Administrador', password: 'AdminAquaPark#99', displayName: 'Administrador' }
@@ -267,7 +267,7 @@ export default function SupervisorDashboard() {
                   <option value="" disabled>Selecciona tu perfil...</option>
                   <option value="hector calle">Hector Calle</option>
                   <option value="lizeth de la cruz">Lizeth de la Cruz</option>
-                  <option value="jhuliana quispe">Jhuliana Quispe</option>
+                  <option value="camila alejo">Camila Alejo</option>
                   <option value="alvaro mendoza">Alvaro Mendoza</option>
                   <option value="limbert tito">Limbert Tito</option>
                   <option value="administrador">Administrador</option>
