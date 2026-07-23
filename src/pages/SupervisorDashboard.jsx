@@ -62,6 +62,7 @@ export default function SupervisorDashboard() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Analytics
   const stats = useMemo(() => {
