@@ -311,7 +311,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       if (isEncargadoMode && onCancel) {
         onCancel();
       } else {
-        setFormData({ name: '', career: '', institution: '', supervisor: 'Hector Calle', turno: '', conclusion: '' });
+        setFormData({ name: '', career: '', institution: '', supervisor: '', turno: '', conclusion: '' });
         setActivities([{ id: 1, description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
       }
       
@@ -473,9 +473,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                     <option value="" disabled>Seleccione a su Encargado...</option>
                     <option value="Hector Calle">Hector Calle</option>
                     <option value="Lizeth de la Cruz">Lizeth de la Cruz</option>
-                    <option value="Camila Alejo">Camila Alejo</option>
                     <option value="Alvaro Mendoza">Alvaro Mendoza</option>
                     <option value="Limbert Tito">Limbert Tito</option>
+                    <option value="Camila Alejo">Camila Alejo</option>
+                    <option value="Yven Cardozo">Yven Cardozo</option>
+                    <option value="Moises Ramos">Moises Ramos</option>
                   </select>
                 </div>
               </>

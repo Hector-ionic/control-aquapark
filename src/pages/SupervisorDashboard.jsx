@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, ArrowLeft } from 'lucide-react';
+import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, ArrowLeft, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
@@ -8,9 +8,11 @@ import StudentForm from './StudentForm';
 const USERS = {
   'hector calle': { role: 'Encargado', password: 'AquaPark#01', displayName: 'Hector Calle' },
   'lizeth de la cruz': { role: 'Encargado', password: 'AquaPark#02', displayName: 'Lizeth de la Cruz' },
-  'camila alejo': { role: 'Encargado', password: 'AquaPark#03', displayName: 'Camila Alejo' },
   'alvaro mendoza': { role: 'Encargado', password: 'AquaPark#04', displayName: 'Alvaro Mendoza' },
   'limbert tito': { role: 'Encargado', password: 'AquaPark#05', displayName: 'Limbert Tito' },
+  'camila alejo': { role: 'Encargado', password: 'AquaPark#06', displayName: 'Camila Alejo' },
+  'yven cardozo': { role: 'Encargado', password: 'AquaPark#07', displayName: 'Yven Cardozo' },
+  'moises ramos': { role: 'Encargado', password: 'AquaPark#08', displayName: 'Moises Ramos' },
   'administrador': { role: 'Administrador', password: 'AdminAquaPark#99', displayName: 'Administrador' }
 };
 
@@ -50,8 +52,12 @@ export default function SupervisorDashboard() {
   const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [filterTurno, setFilterTurno] = useState('Todos');
+  const [filterMonth, setFilterMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [isDeletingOld, setIsDeletingOld] = useState(false);
   
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -72,8 +78,15 @@ export default function SupervisorDashboard() {
     return reports
       .filter(r => showTrash ? r.isDeleted === true : (r.isDeleted !== true))
       .filter(r => r.student?.toLowerCase().includes(searchTerm.toLowerCase()))
-      .filter(r => filterTurno === 'Todos' || r.turno === filterTurno);
-  }, [reports, searchTerm, filterTurno, showTrash]);
+      .filter(r => filterTurno === 'Todos' || r.turno === filterTurno)
+      .filter(r => {
+        if (!filterMonth) return true; // Si el filtro está vacío, mostrar todos
+        if (!r.createdAt) return true; 
+        const date = r.createdAt.toDate();
+        const reportMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        return reportMonth === filterMonth;
+      });
+  }, [reports, searchTerm, filterTurno, showTrash, filterMonth]);
 
   // CSV Export
   const exportCSV = () => {
@@ -155,8 +168,6 @@ export default function SupervisorDashboard() {
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        // Si NO es Admin global, ignoramos por completo los borrados
-        if (data.isDeleted === true && !isGlobalAdmin) return;
         
         const dbSupervisor = (data.supervisor || '').toLowerCase().trim();
         // Si no es admin, solo ve los suyos (ignorando mayúsculas)
@@ -190,7 +201,7 @@ export default function SupervisorDashboard() {
 
   const handleDeleteReport = async (reportId, e) => {
     e.stopPropagation(); // Evitar abrir el detalle
-    if (window.confirm("¿Estás seguro de que quieres enviar este reporte a la Papelera? (El Administrador podrá recuperarlo)")) {
+    if (window.confirm("¿Estás seguro de que quieres archivar este reporte?")) {
       try {
         await updateDoc(doc(db, "reports", reportId), { isDeleted: true });
         setReports(reports.map(r => r.id === reportId ? { ...r, isDeleted: true } : r));
@@ -216,6 +227,48 @@ export default function SupervisorDashboard() {
       console.error("Error restaurando:", err);
       alert("Hubo un error al restaurar el reporte.");
     }
+  };
+
+  const handleUpdateStatus = async (reportId, newStatus, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await updateDoc(doc(db, "reports", reportId), { status: newStatus });
+      setReports(reports.map(r => r.id === reportId ? { ...r, status: newStatus } : r));
+      if (selectedReport && selectedReport.id === reportId) {
+        setSelectedReport({ ...selectedReport, status: newStatus });
+      }
+    } catch (err) {
+      console.error("Error al actualizar estado:", err);
+      alert("Hubo un error al cambiar el estado.");
+    }
+  };
+
+  const handleMassDeleteOldReports = async () => {
+    if (!window.confirm("¡ATENCIÓN! Esto eliminará DEFINITIVAMENTE todos los reportes (y su información) de meses anteriores al actual. Las imágenes en Cloudinary quedarán huérfanas pero la base de datos se limpiará. ¿Deseas continuar?")) return;
+    
+    setIsDeletingOld(true);
+    const d = new Date();
+    const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    
+    let deletedCount = 0;
+    
+    for (const report of reports) {
+      if (!report.createdAt) continue;
+      const rDate = report.createdAt.toDate();
+      const reportMonth = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (reportMonth !== currentMonth) {
+        try {
+          await deleteDoc(doc(db, "reports", report.id));
+          deletedCount++;
+        } catch (e) {
+          console.error("Error al eliminar reporte", report.id, e);
+        }
+      }
+    }
+    
+    setIsDeletingOld(false);
+    alert(`Limpieza completada. Se eliminaron ${deletedCount} reportes antiguos definitivamente.`);
   };
 
   const exportPDF = () => {
@@ -267,9 +320,11 @@ export default function SupervisorDashboard() {
                   <option value="" disabled>Selecciona tu perfil...</option>
                   <option value="hector calle">Hector Calle</option>
                   <option value="lizeth de la cruz">Lizeth de la Cruz</option>
-                  <option value="camila alejo">Camila Alejo</option>
                   <option value="alvaro mendoza">Alvaro Mendoza</option>
                   <option value="limbert tito">Limbert Tito</option>
+                  <option value="camila alejo">Camila Alejo</option>
+                  <option value="yven cardozo">Yven Cardozo</option>
+                  <option value="moises ramos">Moises Ramos</option>
                   <option value="administrador">Administrador</option>
                 </select>
               </div>
@@ -407,23 +462,34 @@ export default function SupervisorDashboard() {
         </div>
         
         <div style={{ borderBottom: '2px solid var(--primary-light)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <h2>Reporte de {selectedReport.student} {selectedReport.isDeleted ? '(EN PAPELERA)' : ''}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                <h2 style={{ margin: 0 }}>Reporte de {selectedReport.student} {selectedReport.isDeleted ? '(ARCHIVADO)' : ''}</h2>
+                {selectedReport.status === 'Aprobado' && <span style={{ background: 'var(--success)', color: '#ffffff', fontSize: '0.7rem', padding: '0.2rem 0.6rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>APROBADO</span>}
+                {selectedReport.status === 'Observado' && <span style={{ background: '#F59E0B', color: '#ffffff', fontSize: '0.7rem', padding: '0.2rem 0.6rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>OBSERVADO</span>}
+                {(!selectedReport.status || selectedReport.status === 'Nuevo') && <span style={{ background: 'var(--primary)', color: '#ffffff', fontSize: '0.7rem', padding: '0.2rem 0.6rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>NUEVO</span>}
+              </div>
               <p style={{ margin: 0 }}><strong>Carrera/Área:</strong> {selectedReport.career} | <strong>Institución:</strong> {selectedReport.institution}</p>
               <p style={{ margin: 0 }}><strong>Fecha:</strong> {selectedReport.dateString} | <strong>Turno:</strong> {selectedReport.turno || 'N/A'} | <strong>Horario:</strong> Inicio {selectedReport.timeStart || 'N/A'} - Envío {selectedReport.timeEnd || 'N/A'}</p>
             </div>
-            {currentUser?.role === 'Administrador' && (
-              selectedReport.isDeleted ? (
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button onClick={(e) => handleUpdateStatus(selectedReport.id, 'Aprobado', e)} className="btn" style={{ background: 'var(--success)', borderColor: 'var(--success)', color: '#fff', padding: '0.6rem 1rem' }}>
+                <CheckCircle size={18} /> Aprobar
+              </button>
+              <button onClick={(e) => handleUpdateStatus(selectedReport.id, 'Observado', e)} className="btn" style={{ background: '#F59E0B', borderColor: '#F59E0B', color: '#fff', padding: '0.6rem 1rem' }}>
+                <AlertCircle size={18} /> Observar
+              </button>
+              {selectedReport.isDeleted ? (
                 <button onClick={(e) => handleRestoreReport(selectedReport.id, e)} className="btn btn-primary" style={{ padding: '0.6rem 1rem' }}>
-                  <LinkIcon size={18} /> Restaurar Reporte
+                  <LinkIcon size={18} /> Desarchivar
                 </button>
               ) : (
-                <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-danger" style={{ padding: '0.6rem 1rem' }}>
-                  <Trash2 size={18} /> Enviar a Papelera
+                <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-secondary" style={{ padding: '0.6rem 1rem' }}>
+                  <Trash2 size={18} /> Archivar
                 </button>
-              )
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -550,6 +616,20 @@ export default function SupervisorDashboard() {
         </div>
       </div>
 
+      {/* ALERTA DE FIN DE MES */}
+      {currentUser?.role === 'Administrador' && new Date().getDate() >= 25 && (
+        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid var(--error)', padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h3 style={{ color: 'var(--error)', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><AlertTriangle size={20}/> ¡Se acerca fin de mes!</h3>
+            <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.9rem' }}>Te sugerimos exportar en CSV todos los reportes importantes. Por rendimiento, se recomienda ejecutar la limpieza mensual pronto.</p>
+          </div>
+          <button onClick={handleMassDeleteOldReports} disabled={isDeletingOld} className="btn btn-danger">
+            {isDeletingOld ? <Loader className="animate-spin" size={16} /> : <Trash2 size={16} />} 
+            Ejecutar Limpieza Mensual
+          </button>
+        </div>
+      )}
+
       {/* ANALYTICS PANEL */}
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
         <div style={statCardStyle}>
@@ -588,6 +668,12 @@ export default function SupervisorDashboard() {
                 style={{ border: 'none', background: 'transparent', boxShadow: 'none', padding: '0.5rem', fontSize: '0.9rem', width: '180px' }}
               />
             </div>
+            <input 
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', color: 'var(--text-main)', cursor: 'pointer', borderRadius: 'var(--radius-md)' }}
+            />
             <select 
               value={filterTurno} 
               onChange={(e) => setFilterTurno(e.target.value)}
@@ -598,16 +684,14 @@ export default function SupervisorDashboard() {
               <option value="Tarde">Tarde</option>
               <option value="Jornada Completa">Jornada Completa</option>
             </select>
-            {currentUser?.role === 'Administrador' && (
-              <button 
-                onClick={() => setShowTrash(!showTrash)} 
-                className={`btn ${showTrash ? 'btn-danger' : 'btn-secondary'}`} 
-                style={{ padding: '0.4rem 0.8rem' }}
-                title="Ver reportes en papelera"
-              >
-                <Trash2 size={16} /> {showTrash ? 'Salir de Papelera' : 'Papelera'}
-              </button>
-            )}
+            <button 
+              onClick={() => setShowTrash(!showTrash)} 
+              className={`btn ${showTrash ? 'btn-primary' : 'btn-secondary'}`} 
+              style={{ padding: '0.4rem 0.8rem' }}
+              title="Ver reportes archivados"
+            >
+              <Trash2 size={16} /> {showTrash ? 'Ocultar Archivados' : 'Archivados'}
+            </button>
             <button onClick={() => fetchReports(currentUser.id)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem' }}>
               ACTUALIZAR
             </button>
@@ -643,7 +727,9 @@ export default function SupervisorDashboard() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem' }}>{report.student}</h4>
-                      {isNew && <span style={{ background: 'var(--primary)', color: '#ffffff', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>NUEVO</span>}
+                      {(!report.status || report.status === 'Nuevo') && isNew && <span style={{ background: 'var(--primary)', color: '#ffffff', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>NUEVO</span>}
+                      {report.status === 'Aprobado' && <span style={{ background: 'var(--success)', color: '#ffffff', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>APROBADO</span>}
+                      {report.status === 'Observado' && <span style={{ background: '#F59E0B', color: '#ffffff', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>OBSERVADO</span>}
                       {report.turno && <span style={{ color: turnoColor, fontSize: '0.7rem', border: `1px solid ${turnoColor}`, padding: '0.1rem 0.4rem', fontWeight: 600, borderRadius: '4px' }}>{report.turno}</span>}
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '0.8rem', marginTop: '0.3rem' }}>
@@ -660,16 +746,14 @@ export default function SupervisorDashboard() {
                   <button className="btn btn-secondary" onClick={() => setSelectedReport(report)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
                     <Eye size={16} /> VER
                   </button>
-                  {currentUser?.role === 'Administrador' && (
-                    report.isDeleted ? (
-                      <button className="btn btn-primary" onClick={(e) => handleRestoreReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Restaurar de la Papelera">
-                        <LinkIcon size={16} />
-                      </button>
-                    ) : (
-                      <button className="btn btn-danger" onClick={(e) => handleDeleteReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Mover a la Papelera">
-                        <Trash2 size={16} />
-                      </button>
-                    )
+                  {report.isDeleted ? (
+                    <button className="btn btn-primary" onClick={(e) => handleRestoreReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Desarchivar">
+                      <LinkIcon size={16} />
+                    </button>
+                  ) : (
+                    <button className="btn btn-secondary" onClick={(e) => handleDeleteReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Archivar">
+                      <Trash2 size={16} />
+                    </button>
                   )}
                 </div>
               </div>
