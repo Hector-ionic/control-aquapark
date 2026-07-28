@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, ArrowLeft, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import StudentForm from './StudentForm';
 
 const USERS = {
@@ -53,10 +53,7 @@ export default function SupervisorDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [filterTurno, setFilterTurno] = useState('Todos');
-  const [filterMonth, setFilterMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  const [filterMonth, setFilterMonth] = useState(''); // Evita que se oculten automáticamente al cambiar de mes
   const [isDeletingOld, setIsDeletingOld] = useState(false);
   
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -160,7 +157,19 @@ export default function SupervisorDashboard() {
     if (!currentUser) return;
     
     setIsLoading(true);
-    const q = query(collection(db, "reports"));
+    
+    const userObj = USERS[currentUser.id] || {};
+    const isGlobalAdmin = userObj.role === 'Administrador';
+    
+    let q;
+    if (isGlobalAdmin) {
+      // Admin ve los últimos 1000 globales
+      q = query(collection(db, "reports"), orderBy("createdAt", "desc"), limit(1000));
+    } else {
+      // Encargados obtienen absolutamente todos sus reportes. 
+      // Esto asegura que nunca "desaparezcan" hasta que los archiven manualmente.
+      q = query(collection(db, "reports"), where("supervisor", "==", currentUser.id));
+    }
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedReports = [];
