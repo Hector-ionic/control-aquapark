@@ -220,7 +220,7 @@ export default function SupervisorDashboard() {
         }
       } catch (err) {
         console.error("Error al eliminar:", err);
-        alert("Hubo un error al eliminar el reporte.");
+        toast("Hubo un error al eliminar el reporte.");
       }
     }
   };
@@ -235,7 +235,7 @@ export default function SupervisorDashboard() {
       }
     } catch (err) {
       console.error("Error restaurando:", err);
-      alert("Hubo un error al restaurar el reporte.");
+      toast("Hubo un error al restaurar el reporte.");
     }
   };
 
@@ -249,7 +249,7 @@ export default function SupervisorDashboard() {
       }
     } catch (err) {
       console.error("Error al actualizar estado:", err);
-      alert("Hubo un error al cambiar el estado.");
+      toast("Hubo un error al cambiar el estado.");
     }
   };
 
@@ -278,7 +278,7 @@ export default function SupervisorDashboard() {
     }
     
     setIsDeletingOld(false);
-    alert(`Limpieza completada. Se eliminaron ${deletedCount} reportes antiguos definitivamente.`);
+    toast(`Limpieza completada. Se eliminaron ${deletedCount} reportes antiguos definitivamente.`);
   };
 
   const exportPDF = () => {
@@ -774,3 +774,4 @@ export default function SupervisorDashboard() {
     </div>
   );
 }
+

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, FileText } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import { db } from '../firebase';
+import toast from 'react-hot-toast';
+import { db, storage } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Función mágica para aplastar imágenes gigantes de Canva sin perder mucha calidad visual
 const compressImage = (file) => {
@@ -135,14 +137,14 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
       // Límite generoso de 50MB para documentos pesados y videos
       if (!isImage && file.size > 50 * 1024 * 1024) {
-        alert("El documento es demasiado pesado. El máximo permitido en la nube es 50MB por razones de conexión de red.");
+        toast.error("El documento es demasiado pesado. El máximo permitido en la nube es 50MB por razones de conexión de red.");
         e.target.value = null; // reset
         return;
       }
 
       // Límite extremo de seguridad para evitar cuelgues del navegador (300MB)
       if (isImage && file.size > 300 * 1024 * 1024) {
-        alert("La imagen es tan pesada que tu navegador se colgaría intentando comprimirla (máximo 300MB permitidos).");
+        toast.error("La imagen es tan pesada que tu navegador se colgaría intentando comprimirla (máximo 300MB permitidos).");
         e.target.value = null;
         return;
       }
@@ -166,7 +168,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         ));
       } catch (err) {
         console.error("Error al procesar el archivo:", err);
-        alert("Hubo un error al procesar la imagen. Intenta con un formato común (JPG, PNG).");
+        toast.error("Hubo un error al procesar la imagen. Intenta con un formato común (JPG, PNG).");
       }
     }
   };
@@ -198,32 +200,32 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.career.trim() || !formData.institution.trim() || !formData.turno) {
-      alert("❌ Faltan datos: Por favor llena tu Nombre, Carrera, Institución y Turno.");
+      toast.error("❌ Faltan datos: Por favor llena tu Nombre, Carrera, Institución y Turno.");
       return;
     }
 
     if (!formData.supervisor) {
-      alert("❌ ¡ALTO! Debes seleccionar a qué Encargado le enviarás este informe.");
+      toast.error("❌ ¡ALTO! Debes seleccionar a qué Encargado le enviarás este informe.");
       return;
     }
 
     // VALIDACIONES ESTRICTAS ANTIBASURA
     if (formData.conclusion.trim().length < 10) {
-      alert("❌ Tu conclusión es demasiado corta. Por favor escribe al menos 10 letras resumiendo tu día.");
+      toast.error("❌ Tu conclusión es demasiado corta. Por favor escribe al menos 10 letras resumiendo tu día.");
       return;
     }
 
     // Verificar que TODAS las actividades agregadas estén llenas
     const emptyActivityIndex = activities.findIndex(act => act.description.trim().length < 10);
     if (emptyActivityIndex !== -1) {
-      alert(`❌ La Actividad #${emptyActivityIndex + 1} está vacía o es muy corta. Debes describir qué hiciste (mínimo 10 letras) o eliminar esa casilla con el botón del basurero si la agregaste por error.`);
+      toast.error(`❌ La Actividad #${emptyActivityIndex + 1} está vacía o es muy corta. Debes describir qué hiciste (mínimo 10 letras) o eliminar esa casilla con el botón del basurero si la agregaste por error.`);
       return;
     }
 
     // Detectar si se perdió el archivo original por recargar la página (autoguardado)
     const lostFiles = activities.filter(act => act.fileName && !act.rawFile && !act.fileBase64);
     if (lostFiles.length > 0) {
-      alert(`⚠️ ARCHIVOS BORRADOS POR RECARGA:\nTu navegador borró los siguientes documentos por seguridad al recargar la página: ${lostFiles.map(l => l.fileName).join(', ')}\n\nPor favor, VUELVE A SELECCIONARLOS haciendo clic en el botón de adjuntar antes de enviar.`);
+      toast.error(`⚠️ ARCHIVOS BORRADOS POR RECARGA:\nTu navegador borró los siguientes documentos por seguridad al recargar la página: ${lostFiles.map(l => l.fileName).join(', ')}\n\nPor favor, VUELVE A SELECCIONARLOS haciendo clic en el botón de adjuntar antes de enviar.`);
       return;
     }
 
@@ -239,11 +241,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         let finalUrl = null;
 
         if (act.rawFile || act.fileBase64) {
-          const cloudFormData = new FormData();
-          cloudFormData.append('file', act.rawFile || act.fileBase64);
-          cloudFormData.append('upload_preset', 'ldqkrdsr');
-
           try {
+            const cloudFormData = new FormData();
+            cloudFormData.append('file', act.rawFile || act.fileBase64);
+            cloudFormData.append('upload_preset', 'ldqkrdsr');
+            
             const res = await fetch('https://api.cloudinary.com/v1_1/dqrc7vc9y/auto/upload', {
               method: 'POST',
               body: cloudFormData
@@ -253,11 +255,25 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             if (data.secure_url) {
               finalUrl = data.secure_url;
             } else {
-              throw new Error("No se recibió URL de Cloudinary");
+              throw new Error(data.error?.message || "No se recibió URL de Cloudinary");
             }
           } catch (cloudErr) {
-            console.error("Error subiendo a Cloudinary:", cloudErr);
-            throw new Error("No se pudo subir el archivo " + act.rawFile.name + ". Revisa tu conexión a internet.");
+            console.error("Error subiendo a Cloudinary, intentando Firebase Storage...", cloudErr);
+            // Fallback a Firebase Storage
+            try {
+              if (act.rawFile) {
+                const uniqueFileName = `${Date.now()}_${act.rawFile.name}`;
+                const storageRef = ref(storage, `uploads/${uniqueFileName}`);
+                await uploadBytes(storageRef, act.rawFile);
+                finalUrl = await getDownloadURL(storageRef);
+              } else {
+                throw new Error("No hay archivo crudo para subir a Firebase");
+              }
+            } catch (firebaseErr) {
+              console.error("Error subiendo a Firebase:", firebaseErr);
+              const fileName = act.rawFile ? act.rawFile.name : (act.fileName || 'desconocido');
+              throw new Error("No se pudo subir el archivo " + fileName + ". Revisa tu conexión a internet o el tamaño del archivo.");
+            }
           }
         }
 
@@ -318,11 +334,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     } catch (error) {
       console.error("Error subiendo reporte: ", error);
       if (error.message && error.message.includes("payload is too large")) {
-         alert("Hubo un error: Los archivos adjuntos son muy pesados para la base de datos. Por favor reduce su tamaño.");
+         toast.error("Hubo un error: Los archivos adjuntos son muy pesados para la base de datos. Por favor reduce su tamaño.");
       } else if (error.message) {
-         alert("Error: " + error.message);
+         toast.error("Error: " + error.message);
       } else {
-         alert("Hubo un error al enviar el reporte. Asegúrate de tener conexión.");
+         toast.error("Hubo un error al enviar el reporte. Asegúrate de tener conexión.");
       }
     } finally {
       setIsSubmitting(false);
@@ -614,3 +630,4 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     </div>
   );
 }
+

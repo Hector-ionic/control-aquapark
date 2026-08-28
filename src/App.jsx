@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { ShieldCheck, Monitor, Sun, Moon } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 
 import StudentForm from './pages/StudentForm';
 import SupervisorDashboard from './pages/SupervisorDashboard';
@@ -19,6 +20,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Toaster position="top-center" />
       <div className="app-container">
         <header className="app-header animate-fade-in hide-on-pdf">
           <div className="logo-container">
