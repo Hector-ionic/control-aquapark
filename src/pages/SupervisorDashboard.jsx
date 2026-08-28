@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, ArrowLeft, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import toast from 'react-hot-toast';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import StudentForm from './StudentForm';
@@ -205,7 +206,44 @@ export default function SupervisorDashboard() {
 
   const fetchReports = async (supervisorName) => {
     // Ya no hacemos nada manual porque onSnapshot actualiza en tiempo real
-    // Dejamos la función para no romper el botón ACTUALIZAR
+  
+  // AUTO-ELIMINACIÓN DE MESES ANTERIORES (solo al loguearse como Admin Global)
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'Global Administrator') return;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    const cleanOldReports = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "reports"));
+        const batch = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.createdAt && data.createdAt.toDate) {
+            const reportDate = data.createdAt.toDate();
+            if (reportDate.getFullYear() < currentYear || 
+                (reportDate.getFullYear() === currentYear && reportDate.getMonth() < currentMonth)) {
+              batch.push(docSnap.ref);
+            }
+          }
+        });
+        if (batch.length > 0) {
+          const { deleteDoc } = await import('firebase/firestore');
+          for (const docRef of batch) {
+            await deleteDoc(docRef);
+          }
+          console.log(`🧹 Limpieza automática: ${batch.length} reportes antiguos eliminados.`);
+          toast.success(`Limpieza automática: ${batch.length} reportes de meses anteriores eliminados.`);
+        }
+      } catch (err) {
+        console.error("Error en limpieza automática:", err);
+      }
+    };
+    cleanOldReports();
+  }, [currentUser]);
+
+  // Dejamos la función para no romper el botón ACTUALIZAR
     console.log("Actualización en tiempo real activa.");
   };
 
@@ -239,39 +277,6 @@ export default function SupervisorDashboard() {
     }
   };
 
-  // AUTO-ELIMINACIÓN DE MESES ANTERIORES
-  useEffect(() => {
-    if (reports.length === 0 || !currentUser || USERS[currentUser.id]?.role !== 'Administrador') return;
-    
-    const d = new Date();
-    const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    let oldReportsFound = false;
-
-    const autoClean = async () => {
-      let deletedCount = 0;
-      for (const report of reports) {
-        if (!report.createdAt) continue;
-        const rDate = report.createdAt.toDate();
-        const reportMonth = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (reportMonth !== currentMonth) {
-          try {
-            await deleteDoc(doc(db, "reports", report.id));
-            deletedCount++;
-            oldReportsFound = true;
-          } catch (e) {
-            console.error("Error al auto-eliminar reporte", report.id, e);
-          }
-        }
-      }
-      if (oldReportsFound && deletedCount > 0) {
-        toast.success(`Sistema automatizado: Se limpiaron ${deletedCount} reportes del mes anterior.`);
-      }
-    };
-
-    autoClean();
-  }, [reports, currentUser]);
-
   const handleUpdateStatus = async (reportId, newStatus, e) => {
     if (e) e.stopPropagation();
     try {
@@ -284,6 +289,34 @@ export default function SupervisorDashboard() {
       console.error("Error al actualizar estado:", err);
       toast("Hubo un error al cambiar el estado.");
     }
+  };
+
+  const handleMassDeleteOldReports = async () => {
+    if (!window.confirm("¡ATENCIÓN! Esto eliminará DEFINITIVAMENTE todos los reportes (y su información) de meses anteriores al actual. Las imágenes en Cloudinary quedarán huérfanas pero la base de datos se limpiará. ¿Deseas continuar?")) return;
+    
+    setIsDeletingOld(true);
+    const d = new Date();
+    const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    
+    let deletedCount = 0;
+    
+    for (const report of reports) {
+      if (!report.createdAt) continue;
+      const rDate = report.createdAt.toDate();
+      const reportMonth = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (reportMonth !== currentMonth) {
+        try {
+          await deleteDoc(doc(db, "reports", report.id));
+          deletedCount++;
+        } catch (e) {
+          console.error("Error al eliminar reporte", report.id, e);
+        }
+      }
+    }
+    
+    setIsDeletingOld(false);
+    toast(`Limpieza completada. Se eliminaron ${deletedCount} reportes antiguos definitivamente.`);
   };
 
   const exportPDF = () => {
@@ -633,11 +666,15 @@ export default function SupervisorDashboard() {
 
       {/* ALERTA DE FIN DE MES */}
       {currentUser?.role === 'Administrador' && new Date().getDate() >= 25 && (
-        <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '2px solid var(--primary)', padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid var(--error)', padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h3 style={{ color: 'var(--primary)', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><AlertTriangle size={20}/> ¡Se acerca fin de mes!</h3>
-            <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.9rem' }}>Te sugerimos exportar en CSV todos los reportes de este mes. El sistema eliminará automáticamente los reportes antiguos al cambiar de mes para mantener todo rápido y limpio.</p>
+            <h3 style={{ color: 'var(--error)', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><AlertTriangle size={20}/> ¡Se acerca fin de mes!</h3>
+            <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.9rem' }}>Te sugerimos exportar en CSV todos los reportes importantes. Por rendimiento, se recomienda ejecutar la limpieza mensual pronto.</p>
           </div>
+          <button onClick={handleMassDeleteOldReports} disabled={isDeletingOld} className="btn btn-danger">
+            {isDeletingOld ? <Loader className="animate-spin" size={16} /> : <Trash2 size={16} />} 
+            Ejecutar Limpieza Mensual
+          </button>
         </div>
       )}
 

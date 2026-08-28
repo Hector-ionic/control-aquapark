@@ -1,12 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, FileText } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// FunciÃ³n mÃ¡gica para aplastar imÃ¡genes gigantes de Canva sin perder mucha calidad visual
+// Función mágica para aplastar imágenes gigantes de Canva sin perder mucha calidad visual
 const compressImage = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -57,7 +56,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   
   const [formData, setFormData] = useState({
     name: isEncargadoMode ? encargadoName : '',
-    career: isEncargadoMode ? 'Encargado de Ãrea' : '',
+    career: isEncargadoMode ? 'Encargado de Área' : '',
     institution: isEncargadoMode ? 'Control AquaPark' : '',
     supervisor: isEncargadoMode ? 'Administrador' : '',
     turno: '',
@@ -72,35 +71,6 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
-
-  // CARGAR AUTOGUARDADO
-  useEffect(() => {
-    const savedForm = localStorage.getItem('aquapark_draft_form');
-    const savedActivities = localStorage.getItem('aquapark_draft_activities');
-    if (savedForm) {
-      try { 
-        const parsedForm = JSON.parse(savedForm);
-        // FORZAR LIMPIEZA DEL AUTO-GUARDADO VIEJO PARA QUE NO SE VAYA A HECTOR POR DEFECTO
-        if (parsedForm.supervisor === 'Hector Calle' || parsedForm.supervisor === 'hector calle') {
-          parsedForm.supervisor = '';
-        }
-        setFormData(parsedForm); 
-      } catch(e){}
-    }
-    if (savedActivities) {
-      try { setActivities(JSON.parse(savedActivities)); } catch(e){}
-    }
-  }, []);
-
-  // GUARDAR AUTOGUARDADO
-  useEffect(() => {
-    localStorage.setItem('aquapark_draft_form', JSON.stringify(formData));
-    const safeActivities = activities.map(act => {
-      const { rawFile, ...rest } = act; // Removemos rawFile porque no se puede guardar en localStorage
-      return rest;
-    });
-    localStorage.setItem('aquapark_draft_activities', JSON.stringify(safeActivities));
-  }, [formData, activities]);
 
   const handleAddActivity = () => {
     setActivities([
@@ -135,16 +105,16 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       if (isWord) type = 'word';
       if (isVideo) type = 'video';
 
-      // LÃ­mite generoso de 50MB para documentos pesados y videos
+      // Límite generoso de 50MB para documentos pesados y videos
       if (!isImage && file.size > 50 * 1024 * 1024) {
-        toast.error("El documento es demasiado pesado. El mÃ¡ximo permitido en la nube es 50MB por razones de conexiÃ³n de red.");
+        toast.error("El documento es demasiado pesado. El máximo permitido en la nube es 50MB por razones de conexión de red.");
         e.target.value = null; // reset
         return;
       }
 
-      // LÃ­mite extremo de seguridad para evitar cuelgues del navegador (300MB)
+      // Límite extremo de seguridad para evitar cuelgues del navegador (300MB)
       if (isImage && file.size > 300 * 1024 * 1024) {
-        toast.error("La imagen es tan pesada que tu navegador se colgarÃ­a intentando comprimirla (mÃ¡ximo 300MB permitidos).");
+        toast.error("La imagen es tan pesada que tu navegador se colgaría intentando comprimirla (máximo 300MB permitidos).");
         e.target.value = null;
         return;
       }
@@ -153,7 +123,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         let finalBase64 = null;
         
         if (isImage) {
-           // Mantenemos la compresiÃ³n SOLO para mostrar la vista previa local rÃ¡pida en el navegador
+           // Mantenemos la compresión SOLO para mostrar la vista previa local rápida en el navegador
            finalBase64 = await compressImage(file);
         }
 
@@ -168,7 +138,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         ));
       } catch (err) {
         console.error("Error al procesar el archivo:", err);
-        toast.error("Hubo un error al procesar la imagen. Intenta con un formato comÃºn (JPG, PNG).");
+        toast.error("Hubo un error al procesar la imagen. Intenta con un formato común (JPG, PNG).");
       }
     }
   };
@@ -200,32 +170,25 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.career.trim() || !formData.institution.trim() || !formData.turno) {
-      toast.error("âŒ Faltan datos: Por favor llena tu Nombre, Carrera, InstituciÃ³n y Turno.");
+      toast.error("❌ Faltan datos: Por favor llena tu Nombre, Carrera, Institución y Turno.");
       return;
     }
 
     if (!formData.supervisor) {
-      toast.error("âŒ Â¡ALTO! Debes seleccionar a quÃ© Encargado le enviarÃ¡s este informe.");
+      toast.error("❌ ¡ALTO! Debes seleccionar a qué Encargado le enviarás este informe.");
       return;
     }
 
     // VALIDACIONES ESTRICTAS ANTIBASURA
     if (formData.conclusion.trim().length < 10) {
-      toast.error("âŒ Tu conclusiÃ³n es demasiado corta. Por favor escribe al menos 10 letras resumiendo tu dÃ­a.");
+      toast.error("❌ Tu conclusión es demasiado corta. Por favor escribe al menos 10 letras resumiendo tu día.");
       return;
     }
 
-    // Verificar que TODAS las actividades agregadas estÃ©n llenas
+    // Verificar que TODAS las actividades agregadas estén llenas
     const emptyActivityIndex = activities.findIndex(act => act.description.trim().length < 10);
     if (emptyActivityIndex !== -1) {
-      toast.error(`âŒ La Actividad #${emptyActivityIndex + 1} estÃ¡ vacÃ­a o es muy corta. Debes describir quÃ© hiciste (mÃ­nimo 10 letras) o eliminar esa casilla con el botÃ³n del basurero si la agregaste por error.`);
-      return;
-    }
-
-    // Detectar si se perdiÃ³ el archivo original por recargar la pÃ¡gina (autoguardado)
-    const lostFiles = activities.filter(act => act.fileName && !act.rawFile && !act.fileBase64);
-    if (lostFiles.length > 0) {
-      toast.error(`âš ï¸ ARCHIVOS BORRADOS POR RECARGA:\nTu navegador borrÃ³ los siguientes documentos por seguridad al recargar la pÃ¡gina: ${lostFiles.map(l => l.fileName).join(', ')}\n\nPor favor, VUELVE A SELECCIONARLOS haciendo clic en el botÃ³n de adjuntar antes de enviar.`);
+      toast.error(`❌ La Actividad #${emptyActivityIndex + 1} está vacía o es muy corta. Debes describir qué hiciste (mínimo 10 letras) o eliminar esa casilla con el botón del basurero si la agregaste por error.`);
       return;
     }
 
@@ -246,10 +209,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             cloudFormData.append('file', act.rawFile || act.fileBase64);
             cloudFormData.append('upload_preset', 'ldqkrdsr');
             
+            // Documentos (.doc, .docx, .pdf, .xls) requieren resource_type 'raw' en Cloudinary
             let resourceType = 'auto';
             if (act.rawFile && act.rawFile.name) {
               const ext = act.rawFile.name.split('.').pop().toLowerCase();
-              if (['doc', 'docx', 'pdf', 'xls', 'xlsx'].includes(ext)) {
+              if (['doc', 'docx', 'pdf', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) {
                 resourceType = 'raw';
               }
             }
@@ -267,7 +231,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             }
           } catch (cloudErr) {
             console.error("Error subiendo a Cloudinary:", cloudErr);
-            throw new Error("No se pudo subir el archivo " + (act.rawFile?.name || 'adjunto') + ". Verifique que el peso sea menor a 10MB (límite gratuito) o su conexión.");
+            throw new Error("No se pudo subir el archivo " + (act.rawFile?.name || 'adjunto') + ". Verifica que pese menos de 10MB o revisa tu conexión.");
           }
         }
 
@@ -284,7 +248,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       const submitTime = new Date();
 
       let calculatedTimeStart = startTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      if (formData.turno === 'MaÃ±ana' || formData.turno === 'Jornada Completa') {
+      if (formData.turno === 'Mañana' || formData.turno === 'Jornada Completa') {
         calculatedTimeStart = '08:00';
       } else if (formData.turno === 'Tarde') {
         calculatedTimeStart = '14:00';
@@ -308,11 +272,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
       await addDoc(collection(db, "reports"), reportData);
 
-      // LIMPIAR AUTOGUARDADO TRAS Ã‰XITO
-      localStorage.removeItem('aquapark_draft_form');
-      localStorage.removeItem('aquapark_draft_activities');
-
-      const wantsPDF = window.confirm("Â¡Reporte enviado con Ã©xito al encargado!\n\nÂ¿Deseas descargar tu propio informe en formato PDF para tus registros personales antes de que se limpie la pantalla?");
+      const wantsPDF = window.confirm("¡Reporte enviado con éxito al encargado!\n\n¿Deseas descargar tu propio informe en formato PDF para tus registros personales antes de que se limpie la pantalla?");
       
       if (wantsPDF) {
         await exportPDF();
@@ -328,11 +288,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     } catch (error) {
       console.error("Error subiendo reporte: ", error);
       if (error.message && error.message.includes("payload is too large")) {
-         toast.error("Hubo un error: Los archivos adjuntos son muy pesados para la base de datos. Por favor reduce su tamaÃ±o.");
+         toast.error("Hubo un error: Los archivos adjuntos son muy pesados para la base de datos. Por favor reduce su tamaño.");
       } else if (error.message) {
          toast.error("Error: " + error.message);
       } else {
-         toast.error("Hubo un error al enviar el reporte. AsegÃºrate de tener conexiÃ³n.");
+         toast.error("Hubo un error al enviar el reporte. Asegúrate de tener conexión.");
       }
     } finally {
       setIsSubmitting(false);
@@ -345,7 +305,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   });
   
   let startStr = startTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  if (formData.turno === 'MaÃ±ana' || formData.turno === 'Jornada Completa') {
+  if (formData.turno === 'Mañana' || formData.turno === 'Jornada Completa') {
     startStr = '08:00';
   } else if (formData.turno === 'Tarde') {
     startStr = '14:00';
@@ -359,7 +319,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       {/* PLANTILLA PDF OCULTA */}
       <div id="pdf-formal-template" style={{ display: 'none', background: 'white', color: 'black', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
         <div style={{ textAlign: 'center', borderBottom: '2px solid #1e3a8a', paddingBottom: '15px', marginBottom: '20px' }}>
-          <h1 style={{ color: '#1e3a8a', margin: '0 0 10px 0', fontSize: '24px' }}>INFORME DIARIO DE PASANTÃAS</h1>
+          <h1 style={{ color: '#1e3a8a', margin: '0 0 10px 0', fontSize: '24px' }}>INFORME DIARIO DE PASANTÍAS</h1>
           <p style={{ margin: 0, color: '#4b5563', fontSize: '14px' }}>Control AquaPark - Sistema de Registro</p>
         </div>
 
@@ -368,7 +328,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             <tr>
               <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold', width: '30%' }}>Fecha y Horario:</td>
               <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>
-                {dateStr} | <strong>Inicio:</strong> {startStr} - <strong>EnvÃ­o:</strong> {currentStr}
+                {dateStr} | <strong>Inicio:</strong> {startStr} - <strong>Envío:</strong> {currentStr}
               </td>
             </tr>
             <tr>
@@ -376,7 +336,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{formData.name || 'Sin especificar'}</td>
             </tr>
             <tr>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Carrera / InstituciÃ³n:</td>
+              <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Carrera / Institución:</td>
               <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{formData.career || '-'} / {formData.institution || '-'}</td>
             </tr>
             <tr>
@@ -394,14 +354,14 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         {activities.map((act, idx) => (
           <div key={idx} style={{ marginBottom: '20px', pageBreakInside: 'avoid' }}>
             <h3 style={{ fontSize: '16px', margin: '10px 0 5px 0' }}>{idx + 1}. Tarea Ejecutada</h3>
-            <p style={{ margin: '0 0 10px 0', fontSize: '14px', lineHeight: '1.5' }}>{act.description || 'Sin descripciÃ³n'}</p>
+            <p style={{ margin: '0 0 10px 0', fontSize: '14px', lineHeight: '1.5' }}>{act.description || 'Sin descripción'}</p>
             {act.link && (
               <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}><strong>Referencia:</strong> <a href={act.link} style={{ color: '#2563eb' }}>{act.link}</a></p>
             )}
             
             {act.fileBase64 && act.fileType === 'image' && (
               <div style={{ marginTop: '10px', textAlign: 'center' }}>
-                <p style={{ margin: '0 0 5px 0', fontSize: '14px', textAlign: 'left' }}><strong>Evidencia FotogrÃ¡fica:</strong></p>
+                <p style={{ margin: '0 0 5px 0', fontSize: '14px', textAlign: 'left' }}><strong>Evidencia Fotográfica:</strong></p>
                 <img src={act.fileBase64} style={{ maxWidth: '400px', maxHeight: '300px', border: '1px solid #e5e7eb', padding: '5px' }} alt="Evidencia" />
               </div>
             )}
@@ -409,7 +369,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             {act.fileBase64 && (act.fileType === 'pdf' || act.fileType === 'word') && (
               <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
                 <p style={{ margin: 0, fontSize: '14px' }}>
-                  <strong>{act.fileType === 'pdf' ? 'ðŸ“„ Documento PDF Adjunto:' : 'ðŸ“ Documento Word Adjunto:'}</strong> {act.fileName}
+                  <strong>{act.fileType === 'pdf' ? '📄 Documento PDF Adjunto:' : '📝 Documento Word Adjunto:'}</strong> {act.fileName}
                 </p>
               </div>
             )}
@@ -417,9 +377,9 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         ))}
 
         <div style={{ marginTop: '30px', pageBreakInside: 'avoid' }}>
-          <h2 style={{ color: '#1e3a8a', fontSize: '18px', borderBottom: '1px solid #e5e7eb', paddingBottom: '5px' }}>ConclusiÃ³n del DÃ­a</h2>
+          <h2 style={{ color: '#1e3a8a', fontSize: '18px', borderBottom: '1px solid #e5e7eb', paddingBottom: '5px' }}>Conclusión del Día</h2>
           <p style={{ fontSize: '14px', lineHeight: '1.6', fontStyle: 'italic', backgroundColor: '#f9fafb', padding: '15px', borderLeft: '4px solid #1e3a8a' }}>
-            {formData.conclusion || 'Sin conclusiÃ³n proporcionada.'}
+            {formData.conclusion || 'Sin conclusión proporcionada.'}
           </p>
         </div>
         
@@ -435,7 +395,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       <div className="glass-panel" id="report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ marginBottom: '0.2rem' }}>{isEncargadoMode ? 'Informe Directo a RR.HH' : 'Registro Diario de Actividades'}</h2>
-          <p style={{ margin: 0 }}>{isEncargadoMode ? 'Redacta tu informe de encargado aquÃ­.' : 'Llena este formulario al finalizar tu jornada.'}</p>
+          <p style={{ margin: 0 }}>{isEncargadoMode ? 'Redacta tu informe de encargado aquí.' : 'Llena este formulario al finalizar tu jornada.'}</p>
         </div>
         <div style={{ textAlign: 'right', background: 'var(--surface-border)', padding: '0.8rem 1.2rem', borderRadius: 'var(--radius-md)' }}>
           <div style={{ fontSize: '0.85rem', textTransform: 'capitalize', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>{dateStr}</div>
@@ -458,24 +418,24 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               <>
                 <div className="input-group">
                   <label>Nombre Completo</label>
-                  <input type="text" required placeholder="Ej. Juan PÃ©rez" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <input type="text" required placeholder="Ej. Juan Pérez" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                 </div>
                 <div className="input-group">
                   <label>Carrera / Especialidad</label>
                   <select required value={formData.career} onChange={e => setFormData({...formData, career: e.target.value})}>
                     <option value="" disabled>Seleccione una carrera...</option>
-                    <option value="IngenierÃ­a en Sistemas">IngenierÃ­a en Sistemas</option>
-                    <option value="IngenierÃ­a Comercial">IngenierÃ­a Comercial</option>
+                    <option value="Ingeniería en Sistemas">Ingeniería en Sistemas</option>
+                    <option value="Ingeniería Comercial">Ingeniería Comercial</option>
                     <option value="Contabilidad">Contabilidad</option>
-                    <option value="IngenierÃ­a Civil">IngenierÃ­a Civil</option>
+                    <option value="Ingeniería Civil">Ingeniería Civil</option>
                     <option value="Arquitectura">Arquitectura</option>
                     <option value="Comercio Internacional">Comercio Internacional</option>
-                    <option value="AdministraciÃ³n de empresas">AdministraciÃ³n de empresas</option>
+                    <option value="Administración de empresas">Administración de empresas</option>
                   </select>
                 </div>
                 <div className="input-group">
-                  <label>InstituciÃ³n Educativa</label>
-                  <input type="text" required placeholder="Ej. Universidad TecnolÃ³gica" value={formData.institution} onChange={e => setFormData({...formData, institution: e.target.value})} />
+                  <label>Institución Educativa</label>
+                  <input type="text" required placeholder="Ej. Universidad Tecnológica" value={formData.institution} onChange={e => setFormData({...formData, institution: e.target.value})} />
                 </div>
                 <div className="input-group">
                   <label>Enviar a (Encargado)</label>
@@ -507,7 +467,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               <label>Turno</label>
               <select required value={formData.turno} onChange={e => setFormData({...formData, turno: e.target.value})}>
                 <option value="" disabled>Seleccione turno...</option>
-                <option value="MaÃ±ana">MaÃ±ana</option>
+                <option value="Mañana">Mañana</option>
                 <option value="Tarde">Tarde</option>
                 <option value="Jornada Completa">Jornada Completa</option>
               </select>
@@ -536,8 +496,8 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                 <h4 style={{ color: 'var(--primary-dark)', marginBottom: '1rem' }}>Actividad #{index + 1}</h4>
                 
                 <div className="input-group">
-                  <label>DescripciÃ³n de la Tarea</label>
-                  <textarea required placeholder="Describe detalladamente quÃ© hiciste..." value={act.description} onChange={e => handleActivityChange(act.id, 'description', e.target.value)} style={{ minHeight: '80px' }}></textarea>
+                  <label>Descripción de la Tarea</label>
+                  <textarea required placeholder="Describe detalladamente qué hiciste..." value={act.description} onChange={e => handleActivityChange(act.id, 'description', e.target.value)} style={{ minHeight: '80px' }}></textarea>
                 </div>
                 
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -546,7 +506,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                     <div style={{ position: 'relative', overflow: 'hidden' }}>
                       <input type="file" accept="image/*,.pdf,.doc,.docx,video/*" onChange={(e) => handleFileChange(act.id, e)} style={{ position: 'absolute', opacity: 0, left: 0, top: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10, clipPath: 'none' }} />
                       <button type="button" className="btn btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', background: 'rgba(255,255,255,0.1)', position: 'relative', zIndex: 1 }}>
-                        <Upload size={18} /> {act.fileName || 'Seleccionar Archivo (MÃ¡x 800KB)'}
+                        <Upload size={18} /> {act.fileName || 'Seleccionar Archivo (Máx 800KB)'}
                       </button>
                     </div>
                     
@@ -579,11 +539,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
         <div className="glass-card">
           <h3 style={{ borderBottom: '2px solid var(--primary-light)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
-            3. ConclusiÃ³n Final
+            3. Conclusión Final
           </h3>
           <div className="input-group">
-            <label>Resumen del DÃ­a</label>
-            <textarea required placeholder="Escribe una conclusiÃ³n general..." value={formData.conclusion} onChange={e => setFormData({...formData, conclusion: e.target.value})}></textarea>
+            <label>Resumen del Día</label>
+            <textarea required placeholder="Escribe una conclusión general..." value={formData.conclusion} onChange={e => setFormData({...formData, conclusion: e.target.value})}></textarea>
           </div>
         </div>
 
@@ -624,9 +584,4 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     </div>
   );
 }
-
-
-
-
-
 
