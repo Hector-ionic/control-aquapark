@@ -10,6 +10,7 @@ import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 import { useAuth } from '../context/AuthContext';
+import { getSupervisors } from '../services/supervisorService';
 
 // Función para comprimir imágenes de alta resolución sin degradar la legibilidad
 const compressImage = (file) => {
@@ -60,6 +61,15 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   const [uploadStatus, setUploadStatus] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [submittedReport, setSubmittedReport] = useState(null);
+  const [availableSupervisors, setAvailableSupervisors] = useState(() => getSupervisors(false));
+
+  useEffect(() => {
+    const handleSupervisorsUpdate = () => {
+      setAvailableSupervisors(getSupervisors(false));
+    };
+    window.addEventListener('supervisors_changed', handleSupervisorsUpdate);
+    return () => window.removeEventListener('supervisors_changed', handleSupervisorsUpdate);
+  }, []);
 
   const handleCloseSuccessModal = () => {
     setSubmittedReport(null);
@@ -541,13 +551,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                   <label><Briefcase size={14} color="var(--primary)" /> Enviar a (Encargado) *</label>
                   <select required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}>
                     <option value="" disabled>Seleccione a su Encargado...</option>
-                    <option value="Hector Calle">Hector Calle</option>
-                    <option value="Lizeth de la Cruz">Lizeth de la Cruz</option>
-                    <option value="Alvaro Mendoza">Alvaro Mendoza</option>
-                    <option value="Limbert Tito">Limbert Tito</option>
-                    <option value="Camila Alejo">Camila Alejo</option>
-                    <option value="Yven Cardozo">Yven Cardozo</option>
-                    <option value="Moises Ramos">Moises Ramos</option>
+                    {availableSupervisors.map(sup => (
+                      <option key={sup.id} value={sup.name}>
+                        {sup.name} {sup.area ? `(${sup.area})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </>
