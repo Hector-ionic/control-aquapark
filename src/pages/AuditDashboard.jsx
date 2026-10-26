@@ -226,7 +226,7 @@ export default function AuditDashboard() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <select
             value={logLimit}
             onChange={(e) => setLogLimit(Number(e.target.value))}
@@ -248,12 +248,33 @@ export default function AuditDashboard() {
           </select>
 
           <button 
+            onClick={handleExportExcel} 
+            className="btn btn-primary"
+            style={{ 
+              padding: '0.6rem 1.1rem', 
+              fontSize: '0.88rem', 
+              background: '#16a34a', 
+              borderColor: '#15803d',
+              color: '#ffffff',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem'
+            }}
+            title="Descargar en formato Excel (.xls)"
+          >
+            <FileSpreadsheet size={17} />
+            Descargar Excel ({filteredLogs.length})
+          </button>
+
+          <button 
             onClick={handleExportCSV} 
             className="btn btn-secondary"
-            style={{ padding: '0.6rem 1.1rem', fontSize: '0.88rem' }}
+            style={{ padding: '0.6rem 1.1rem', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            title="Exportar archivo CSV con formato de lista"
           >
             <Download size={17} />
-            Exportar CSV ({filteredLogs.length})
+            Exportar CSV
           </button>
         </div>
       </div>
