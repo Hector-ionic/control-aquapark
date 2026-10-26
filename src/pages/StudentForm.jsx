@@ -557,7 +557,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                     <option value="" disabled>Seleccione a su Encargado...</option>
                     {availableSupervisors.map(sup => (
                       <option key={sup.id} value={sup.name}>
-                        {sup.name} {sup.area ? `(${sup.area})` : ''}
+                        {sup.name}
                       </option>
                     ))}
                   </select>
