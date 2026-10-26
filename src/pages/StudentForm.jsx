@@ -67,7 +67,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       onCancel();
     } else {
       setFormData({ 
-        name: authUser?.name || '', 
+        name: isEncargadoMode ? encargadoName : '', 
         career: '', 
         institution: '', 
         supervisor: '', 
@@ -96,15 +96,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     return () => clearInterval(timer);
   }, []);
 
-  // Si hay un usuario logueado, autocompletar su nombre en el formulario
-  useEffect(() => {
-    if (authUser && !formData.name && !isEncargadoMode) {
-      setFormData(prev => ({
-        ...prev,
-        name: authUser.name || prev.name
-      }));
-    }
-  }, [authUser, isEncargadoMode]);
+  
 
   const handleAddActivity = () => {
     setActivities([
