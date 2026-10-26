@@ -107,6 +107,107 @@ export default function SupervisorDashboard() {
       });
   }, [reports, searchTerm, filterTurno, showTrash, filterMonth]);
 
+  // Excel Export (.xls corporativo)
+  const exportExcel = () => {
+    if (filteredReports.length === 0) {
+      toast.error("No hay reportes para exportar con los filtros actuales");
+      return;
+    }
+
+    const now = new Date();
+    const fechaGen = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES');
+
+    const rowsHtml = filteredReports.map((r, index) => {
+      const bgColor = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+      const statusColor = r.status === 'Aprobado' ? '#16a34a' : (r.status === 'Observado' ? '#ea580c' : '#2563eb');
+      const actDesc = (r.activities?.map((a, i) => `[${i + 1}] ${a.description || ''}`).join(' | ')) || 'Sin actividades';
+
+      return `
+        <tr style="background-color: ${bgColor};">
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: ${statusColor};">${r.status || 'Nuevo'}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold;">${r.student || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">${r.career || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">${r.institution || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${r.turno || 'N/A'}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${r.dateString || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${r.timeStart || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${r.timeEnd || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">${actDesc.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">${(r.conclusion || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const template = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Reportes de Supervisión</x:Name>
+                <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheet>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+      </head>
+      <body style="font-family: Arial, sans-serif;">
+        <table style="border-collapse: collapse; width: 100%;">
+          <tr>
+            <td colspan="10" style="font-size: 16pt; font-weight: bold; color: #0284c7; padding: 12px 0;">
+              AQUAPARK CONTROL — BITÁCORAS DE ACTIVIDADES DE PASANTES
+            </td>
+          </tr>
+          <tr>
+            <td colspan="10" style="font-size: 9pt; color: #64748b; padding-bottom: 12px;">
+              Supervisor: ${currentUser?.displayName || 'Encargado'} | Fecha de emisión: ${fechaGen} | Total registros: ${filteredReports.length}
+            </td>
+          </tr>
+          <thead>
+            <tr style="background-color: #0284c7; color: #ffffff; font-weight: bold; text-align: left;">
+              <th style="padding: 10px; border: 1px solid #0369a1; text-align: center;">Estado</th>
+              <th style="padding: 10px; border: 1px solid #0369a1;">Estudiante / Pasante</th>
+              <th style="padding: 10px; border: 1px solid #0369a1;">Carrera</th>
+              <th style="padding: 10px; border: 1px solid #0369a1;">Institución</th>
+              <th style="padding: 10px; border: 1px solid #0369a1; text-align: center;">Turno</th>
+              <th style="padding: 10px; border: 1px solid #0369a1; text-align: center;">Fecha</th>
+              <th style="padding: 10px; border: 1px solid #0369a1; text-align: center;">H. Inicio</th>
+              <th style="padding: 10px; border: 1px solid #0369a1; text-align: center;">H. Envío</th>
+              <th style="padding: 10px; border: 1px solid #0369a1;">Actividades Registradas</th>
+              <th style="padding: 10px; border: 1px solid #0369a1;">Conclusión General</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([`\uFEFF${template}`], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reportes_supervision_${new Date().toISOString().split('T')[0]}.xls`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Bitácora descargada en formato Excel (.xls)");
+
+    logAuditEvent({
+      action: AUDIT_ACTIONS.EXPORTAR_CSV,
+      module: AUDIT_MODULES.SUPERVISION,
+      details: `Exportación de ${filteredReports.length} reportes de supervisión a formato Excel (.xls).`,
+      userName: currentUser?.displayName || 'Encargado',
+      userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado',
+      metadata: { totalExportados: filteredReports.length, turnoFiltro: filterTurno, mesFiltro: filterMonth || 'Todos', formato: 'XLS' }
+    });
+  };
+
   // CSV Export
   const exportCSV = () => {
     const headers = ['Nombre', 'Carrera', 'Institución', 'Turno', 'Fecha', 'Hora Inicio', 'Hora Envío', 'Actividades', 'Conclusión'];
