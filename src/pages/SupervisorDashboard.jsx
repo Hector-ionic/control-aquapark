@@ -3,7 +3,7 @@ import {
   Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, 
   Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, 
   ArrowLeft, CheckCircle, AlertTriangle, AlertCircle, ShieldCheck, RefreshCw,
-  Building2, GraduationCap, UserCheck, Calendar, Sparkles, Check
+  Building2, GraduationCap, UserCheck, Calendar, Sparkles, Check, FileSpreadsheet
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
@@ -842,7 +842,23 @@ export default function SupervisorDashboard() {
               <FileText size={16} /> Redactar Informe
             </button>
           )}
-          <button className="btn btn-secondary" onClick={exportCSV} title="Descargar histórico en CSV / Excel">
+          <button 
+            className="btn btn-primary" 
+            onClick={exportExcel} 
+            style={{ 
+              background: '#16a34a', 
+              borderColor: '#15803d', 
+              color: '#ffffff', 
+              fontWeight: 600, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.4rem' 
+            }}
+            title="Descargar todos los reportes formateados en Microsoft Excel (.xls)"
+          >
+            <FileSpreadsheet size={16} /> Descargar Excel
+          </button>
+          <button className="btn btn-secondary" onClick={exportCSV} title="Descargar histórico en archivo CSV" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <Download size={16} /> Exportar CSV
           </button>
           <button className="btn btn-danger" onClick={() => setCurrentUser(null)} title="Cerrar sesión de supervisor">
