@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, 
   Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, 
@@ -873,7 +874,14 @@ export default function SupervisorDashboard() {
             </button>
           )}
 {currentUser.role === 'Administrador' && (
-            <button className="btn btn-secondary" onClick={() => setShowStaffModal(true)} title="Gestionar altas, bajas y eliminación de encargados">
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => {
+                setStaffList(getSupervisors(true));
+                setShowStaffModal(true);
+              }} 
+              title="Gestionar altas, bajas y eliminación de encargados"
+            >
               <Users size={16} color="var(--primary)" /> Gestión de Encargados
             </button>
           )}
@@ -1154,7 +1162,7 @@ export default function SupervisorDashboard() {
 
       </div>
       {/* MODAL DE GESTIÓN DE ENCARGADOS */}
-      {showStaffModal && (
+      {showStaffModal && typeof document !== "undefined" && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
@@ -1342,7 +1350,8 @@ export default function SupervisorDashboard() {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -15,10 +15,23 @@ export const INITIAL_SUPERVISORS = [
 export const getSupervisors = (includeDeleted = false) => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    let list = raw ? JSON.parse(raw) : INITIAL_SUPERVISORS;
-    if (!raw) {
+    let list = raw ? JSON.parse(raw) : null;
+    if (!Array.isArray(list) || list.length === 0) {
+      list = INITIAL_SUPERVISORS;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SUPERVISORS));
     }
+    list = list.map(s => {
+      if (typeof s === 'string') {
+        return { id: s.toLowerCase().replace(/\s+/g, '-'), name: s, area: 'Área General', active: true, deleted: false };
+      }
+      return {
+        id: s.id || ('sup-' + Math.random().toString(36).substr(2, 9)),
+        name: s.name || 'Sin nombre',
+        area: s.area || 'Área General',
+        active: s.active !== false,
+        deleted: Boolean(s.deleted)
+      };
+    });
     if (includeDeleted) return list;
     return list.filter(s => !s.deleted && s.active);
   } catch (err) {
