@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, FileText } from 'lucide-react';
+import { 
+  Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, 
+  FileText, Clock, Calendar, User, Briefcase, GraduationCap, Building2, 
+  CheckCircle2, Sparkles, Image as ImageIcon, AlertCircle, FileCheck
+} from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-// Función mágica para aplastar imágenes gigantes de Canva sin perder mucha calidad visual
+// Función para comprimir imágenes de alta resolución sin degradar la legibilidad
 const compressImage = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -37,8 +41,7 @@ const compressImage = (file) => {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Retorna Base64 comprimido al 65% de calidad JPEG (suficiente para leerse perfecto en un PDF)
-        resolve(canvas.toDataURL('image/jpeg', 0.65));
+        resolve(canvas.toDataURL('image/jpeg', 0.68));
       };
       img.onerror = error => reject(error);
     };
@@ -68,7 +71,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   ]);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -105,26 +108,22 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       if (isWord) type = 'word';
       if (isVideo) type = 'video';
 
-      // Límite generoso de 50MB para documentos pesados y videos
       if (!isImage && file.size > 50 * 1024 * 1024) {
-        toast.error("El documento es demasiado pesado. El máximo permitido en la nube es 50MB por razones de conexión de red.");
-        e.target.value = null; // reset
+        toast.error("El documento es demasiado pesado. El máximo permitido es 50MB.");
+        e.target.value = null;
         return;
       }
 
-      // Límite extremo de seguridad para evitar cuelgues del navegador (300MB)
       if (isImage && file.size > 300 * 1024 * 1024) {
-        toast.error("La imagen es tan pesada que tu navegador se colgaría intentando comprimirla (máximo 300MB permitidos).");
+        toast.error("La imagen excede el límite permitido para compresión en navegador.");
         e.target.value = null;
         return;
       }
 
       try {
         let finalBase64 = null;
-        
         if (isImage) {
-           // Mantenemos la compresión SOLO para mostrar la vista previa local rápida en el navegador
-           finalBase64 = await compressImage(file);
+          finalBase64 = await compressImage(file);
         }
 
         setActivities(activities.map(act => 
@@ -133,21 +132,26 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             fileName: file.name, 
             fileType: type,
             fileBase64: finalBase64,
-            rawFile: file // Guardamos el archivo original para subirlo a Firebase Storage al dar Enviar
+            rawFile: file 
           } : act
         ));
       } catch (err) {
         console.error("Error al procesar el archivo:", err);
-        toast.error("Hubo un error al procesar la imagen. Intenta con un formato común (JPG, PNG).");
+        toast.error("Hubo un error al procesar el archivo. Intenta con un formato estándar.");
       }
     }
+  };
+
+  const removeFileAttachment = (id) => {
+    setActivities(activities.map(act => 
+      act.id === id ? { ...act, fileName: '', fileType: null, fileBase64: null, rawFile: null } : act
+    ));
   };
 
   const exportPDF = () => {
     return new Promise((resolve) => {
       setIsGeneratingPDF(true);
       const element = document.getElementById('pdf-formal-template');
-      
       const opt = {
         margin:       0.5,
         filename:     `Informe_${formData.name || 'Pasante'}_${new Date().toISOString().split('T')[0]}.pdf`,
@@ -175,20 +179,18 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     }
 
     if (!formData.supervisor) {
-      toast.error("❌ ¡ALTO! Debes seleccionar a qué Encargado le enviarás este informe.");
+      toast.error("❌ ¡Atención! Debes seleccionar el Encargado destinatario.");
       return;
     }
 
-    // VALIDACIONES ESTRICTAS ANTIBASURA
     if (formData.conclusion.trim().length < 10) {
-      toast.error("❌ Tu conclusión es demasiado corta. Por favor escribe al menos 10 letras resumiendo tu día.");
+      toast.error("❌ Tu conclusión es muy breve. Por favor describe con mayor detalle el balance del día.");
       return;
     }
 
-    // Verificar que TODAS las actividades agregadas estén llenas
     const emptyActivityIndex = activities.findIndex(act => act.description.trim().length < 10);
     if (emptyActivityIndex !== -1) {
-      toast.error(`❌ La Actividad #${emptyActivityIndex + 1} está vacía o es muy corta. Debes describir qué hiciste (mínimo 10 letras) o eliminar esa casilla con el botón del basurero si la agregaste por error.`);
+      toast.error(`❌ La Actividad #${emptyActivityIndex + 1} debe tener al menos 10 caracteres explicativos.`);
       return;
     }
 
@@ -197,7 +199,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     try {
       const hasFiles = activities.some(act => act.rawFile);
       if (hasFiles) {
-        setUploadStatus('Subiendo archivos pesados (videos/documentos), no cierres la ventana...');
+        setUploadStatus('Cargando evidencias multimedia a la nube corporativa...');
       }
 
       const processedActivities = await Promise.all(activities.map(async (act) => {
@@ -209,7 +211,6 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             cloudFormData.append('file', act.rawFile || act.fileBase64);
             cloudFormData.append('upload_preset', 'ldqkrdsr');
             
-            // Documentos (.doc, .docx, .pdf, .xls) requieren resource_type 'raw' en Cloudinary
             let resourceType = 'auto';
             if (act.rawFile && act.rawFile.name) {
               const ext = act.rawFile.name.split('.').pop().toLowerCase();
@@ -227,11 +228,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             if (data.secure_url) {
               finalUrl = data.secure_url;
             } else {
-              throw new Error(data.error?.message || "No se recibió URL de Cloudinary");
+              throw new Error(data.error?.message || "No se recibió URL de carga");
             }
           } catch (cloudErr) {
-            console.error("Error subiendo a Cloudinary:", cloudErr);
-            throw new Error("No se pudo subir el archivo " + (act.rawFile?.name || 'adjunto') + ". Verifica que pese menos de 10MB o revisa tu conexión.");
+            console.error("Error subiendo archivo:", cloudErr);
+            throw new Error("No se pudo subir el archivo " + (act.rawFile?.name || 'adjunto') + ".");
           }
         }
 
@@ -272,7 +273,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
       await addDoc(collection(db, "reports"), reportData);
 
-      const wantsPDF = window.confirm("¡Reporte enviado con éxito al encargado!\n\n¿Deseas descargar tu propio informe en formato PDF para tus registros personales antes de que se limpie la pantalla?");
+      const wantsPDF = window.confirm("¡Reporte enviado con éxito al encargado!\n\n¿Deseas descargar tu comprobante en PDF antes de limpiar el formulario?");
       
       if (wantsPDF) {
         await exportPDF();
@@ -285,15 +286,10 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         setActivities([{ id: 1, description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
       }
       
+      toast.success("✅ ¡Bitácora enviada exitosamente!");
     } catch (error) {
       console.error("Error subiendo reporte: ", error);
-      if (error.message && error.message.includes("payload is too large")) {
-         toast.error("Hubo un error: Los archivos adjuntos son muy pesados para la base de datos. Por favor reduce su tamaño.");
-      } else if (error.message) {
-         toast.error("Error: " + error.message);
-      } else {
-         toast.error("Hubo un error al enviar el reporte. Asegúrate de tener conexión.");
-      }
+      toast.error(error.message || "Error al procesar el reporte.");
     } finally {
       setIsSubmitting(false);
       setUploadStatus('');
@@ -311,117 +307,168 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     startStr = '14:00';
   }
   
-  const currentStr = currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const currentStr = currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
       
-      {/* PLANTILLA PDF OCULTA */}
-      <div id="pdf-formal-template" style={{ display: 'none', background: 'white', color: 'black', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-        <div style={{ textAlign: 'center', borderBottom: '2px solid #1e3a8a', paddingBottom: '15px', marginBottom: '20px' }}>
-          <h1 style={{ color: '#1e3a8a', margin: '0 0 10px 0', fontSize: '24px' }}>INFORME DIARIO DE PASANTÍAS</h1>
-          <p style={{ margin: 0, color: '#4b5563', fontSize: '14px' }}>Control AquaPark - Sistema de Registro</p>
+      {/* PLANTILLA PDF OCULTA PARA EXPORTACIÓN */}
+      <div id="pdf-formal-template" style={{ display: 'none', background: 'white', color: 'black', padding: '24px', fontFamily: 'Arial, sans-serif' }}>
+        <div style={{ textAlign: 'center', borderBottom: '2px solid #0284c7', paddingBottom: '15px', marginBottom: '20px' }}>
+          <h1 style={{ color: '#0369a1', margin: '0 0 6px 0', fontSize: '22px', textTransform: 'uppercase' }}>
+            {isEncargadoMode ? 'Informe Oficial de Encargado de Área' : 'Bitácora Diaria de Actividades'}
+          </h1>
+          <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>Control AquaPark — Plataforma de Gestión de Personal</p>
         </div>
 
-        <table style={{ width: '100%', marginBottom: '25px', borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse', fontSize: '13px' }}>
           <tbody>
             <tr>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold', width: '30%' }}>Fecha y Horario:</td>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>
-                {dateStr} | <strong>Inicio:</strong> {startStr} - <strong>Envío:</strong> {currentStr}
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold', width: '28%' }}>Fecha y Registro:</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>
+                {dateStr} | <strong>Inicio:</strong> {startStr} — <strong>Cierre:</strong> {currentStr}
               </td>
             </tr>
             <tr>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Remitente:</td>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{formData.name || 'Sin especificar'}</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Remitente:</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>{formData.name || 'Sin especificar'}</td>
             </tr>
             <tr>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Carrera / Institución:</td>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{formData.career || '-'} / {formData.institution || '-'}</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Carrera / Institución:</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>{formData.career || '-'} / {formData.institution || '-'}</td>
             </tr>
             <tr>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Destinatario:</td>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{formData.supervisor}</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Supervisor Destino:</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>{formData.supervisor}</td>
             </tr>
             <tr>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Turno:</td>
-              <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{formData.turno || 'No especificado'}</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Turno:</td>
+              <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>{formData.turno || 'No especificado'}</td>
             </tr>
           </tbody>
         </table>
 
-        <h2 style={{ color: '#1e3a8a', fontSize: '18px', borderBottom: '1px solid #e5e7eb', paddingBottom: '5px' }}>Actividades Realizadas</h2>
+        <h2 style={{ color: '#0369a1', fontSize: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px', marginTop: '20px' }}>
+          Actividades Ejecutadas
+        </h2>
         {activities.map((act, idx) => (
-          <div key={idx} style={{ marginBottom: '20px', pageBreakInside: 'avoid' }}>
-            <h3 style={{ fontSize: '16px', margin: '10px 0 5px 0' }}>{idx + 1}. Tarea Ejecutada</h3>
-            <p style={{ margin: '0 0 10px 0', fontSize: '14px', lineHeight: '1.5' }}>{act.description || 'Sin descripción'}</p>
+          <div key={idx} style={{ marginBottom: '16px', pageBreakInside: 'avoid', borderBottom: '1px dashed #e2e8f0', paddingBottom: '12px' }}>
+            <h3 style={{ fontSize: '14px', margin: '8px 0 4px 0', color: '#0f172a' }}>{idx + 1}. Detalle de la Tarea:</h3>
+            <p style={{ margin: '0 0 6px 0', fontSize: '13px', lineHeight: '1.5', color: '#334155' }}>{act.description || 'Sin descripción'}</p>
             {act.link && (
-              <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}><strong>Referencia:</strong> <a href={act.link} style={{ color: '#2563eb' }}>{act.link}</a></p>
+              <p style={{ margin: '0 0 6px 0', fontSize: '12px' }}><strong>Referencia digital:</strong> <a href={act.link} style={{ color: '#0284c7' }}>{act.link}</a></p>
             )}
             
             {act.fileBase64 && act.fileType === 'image' && (
-              <div style={{ marginTop: '10px', textAlign: 'center' }}>
-                <p style={{ margin: '0 0 5px 0', fontSize: '14px', textAlign: 'left' }}><strong>Evidencia Fotográfica:</strong></p>
-                <img src={act.fileBase64} style={{ maxWidth: '400px', maxHeight: '300px', border: '1px solid #e5e7eb', padding: '5px' }} alt="Evidencia" />
+              <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                <img src={act.fileBase64} style={{ maxWidth: '380px', maxHeight: '250px', border: '1px solid #cbd5e1', padding: '4px', borderRadius: '4px' }} alt="Evidencia" />
               </div>
             )}
 
             {act.fileBase64 && (act.fileType === 'pdf' || act.fileType === 'word') && (
-              <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                <p style={{ margin: 0, fontSize: '14px' }}>
-                  <strong>{act.fileType === 'pdf' ? '📄 Documento PDF Adjunto:' : '📝 Documento Word Adjunto:'}</strong> {act.fileName}
+              <div style={{ marginTop: '8px', padding: '8px 12px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', borderRadius: '4px' }}>
+                <p style={{ margin: 0, fontSize: '12px' }}>
+                  <strong>Documento adjunto:</strong> {act.fileName}
                 </p>
               </div>
             )}
           </div>
         ))}
 
-        <div style={{ marginTop: '30px', pageBreakInside: 'avoid' }}>
-          <h2 style={{ color: '#1e3a8a', fontSize: '18px', borderBottom: '1px solid #e5e7eb', paddingBottom: '5px' }}>Conclusión del Día</h2>
-          <p style={{ fontSize: '14px', lineHeight: '1.6', fontStyle: 'italic', backgroundColor: '#f9fafb', padding: '15px', borderLeft: '4px solid #1e3a8a' }}>
-            {formData.conclusion || 'Sin conclusión proporcionada.'}
+        <div style={{ marginTop: '24px', pageBreakInside: 'avoid' }}>
+          <h2 style={{ color: '#0369a1', fontSize: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px' }}>Conclusiones de la Jornada</h2>
+          <p style={{ fontSize: '13px', lineHeight: '1.6', fontStyle: 'italic', backgroundColor: '#f8fafc', padding: '12px', borderLeft: '4px solid #0284c7', marginTop: '8px' }}>
+            {formData.conclusion || 'Sin conclusión registrada.'}
           </p>
         </div>
         
-        <div style={{ marginTop: '50px', textAlign: 'center', pageBreakInside: 'avoid' }}>
-          <div style={{ borderTop: '1px solid black', width: '250px', margin: '0 auto', paddingTop: '10px' }}>
-            <strong>Firma del Remitente</strong><br/>
-            <span style={{ fontSize: '12px', color: '#6b7280' }}>{formData.name}</span>
+        <div style={{ marginTop: '45px', textAlign: 'center', pageBreakInside: 'avoid' }}>
+          <div style={{ borderTop: '1px solid #0f172a', width: '220px', margin: '0 auto', paddingTop: '8px' }}>
+            <strong style={{ fontSize: '13px' }}>Firma del Remitente</strong><br/>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>{formData.name}</span>
           </div>
         </div>
       </div>
 
-      {/* UI PRINCIPAL */}
-      <div className="glass-panel" id="report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* BANNER PRINCIPAL DE LA BITÁCORA */}
+      <div className="glass-panel" id="report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
         <div>
-          <h2 style={{ marginBottom: '0.2rem' }}>{isEncargadoMode ? 'Informe Directo a RR.HH' : 'Registro Diario de Actividades'}</h2>
-          <p style={{ margin: 0 }}>{isEncargadoMode ? 'Redacta tu informe de encargado aquí.' : 'Llena este formulario al finalizar tu jornada.'}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+            <span className="badge badge-primary">
+              <Sparkles size={12} />
+              {isEncargadoMode ? 'Canal Gerencial' : 'Bitácora Digital'}
+            </span>
+            <span className="badge badge-neutral">
+              {activities.length} {activities.length === 1 ? 'Actividad' : 'Actividades'}
+            </span>
+          </div>
+          <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+            {isEncargadoMode ? 'Informe Directo a RR.HH / Administración' : 'Registro Diario de Actividades'}
+          </h2>
+          <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
+            {isEncargadoMode 
+              ? 'Emite tu informe ejecutivo de encargado para su revisión administrativa.' 
+              : 'Registra tus avances, tareas ejecutadas y evidencias antes de concluir tu jornada.'}
+          </p>
         </div>
-        <div style={{ textAlign: 'right', background: 'var(--surface-border)', padding: '0.8rem 1.2rem', borderRadius: 'var(--radius-md)' }}>
-          <div style={{ fontSize: '0.85rem', textTransform: 'capitalize', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>{dateStr}</div>
-          <div style={{ fontWeight: 600, color: 'var(--primary-dark)', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+
+        <div style={{ 
+          background: 'var(--surface-secondary)', 
+          border: '1px solid var(--surface-border)', 
+          padding: '0.85rem 1.25rem', 
+          borderRadius: 'var(--radius-md)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '0.35rem',
+          minWidth: '220px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            <Calendar size={14} color="var(--primary)" />
+            <span style={{ textTransform: 'capitalize' }}>{dateStr}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+            <Clock size={15} color="var(--primary)" />
             <span>Inicio: {startStr}</span>
-            <span style={{ color: 'var(--text-muted)' }}>|</span>
-            <span>Actual: {currentStr}</span>
+            <span style={{ color: 'var(--surface-border-strong)' }}>|</span>
+            <span style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}>{currentStr}</span>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
         
+        {/* SECCIÓN 1: DATOS GENERALES */}
         <div className="glass-card">
-          <h3 style={{ borderBottom: '2px solid var(--primary-light)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
-            1. Datos Generales
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.85rem' }}>
+            <div style={{ 
+              width: '32px', height: '32px', borderRadius: 'var(--radius-sm)', 
+              background: 'var(--primary-light)', color: 'var(--primary)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.9rem' 
+            }}>
+              01
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Datos Generales del Remitente</h3>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>Información institucional del remitente y asignación de turno</p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
             {!isEncargadoMode ? (
               <>
                 <div className="input-group">
-                  <label>Nombre Completo</label>
-                  <input type="text" required placeholder="Ej. Juan Pérez" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <label><User size={14} color="var(--primary)" /> Nombre Completo *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Ej. Juan Carlos Pérez" 
+                    value={formData.name} 
+                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                  />
                 </div>
+                
                 <div className="input-group">
-                  <label>Carrera / Especialidad</label>
+                  <label><GraduationCap size={14} color="var(--primary)" /> Carrera / Especialidad *</label>
                   <select required value={formData.career} onChange={e => setFormData({...formData, career: e.target.value})}>
                     <option value="" disabled>Seleccione una carrera...</option>
                     <option value="Ingeniería en Sistemas">Ingeniería en Sistemas</option>
@@ -433,12 +480,20 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                     <option value="Administración de empresas">Administración de empresas</option>
                   </select>
                 </div>
+
                 <div className="input-group">
-                  <label>Institución Educativa</label>
-                  <input type="text" required placeholder="Ej. Universidad Tecnológica" value={formData.institution} onChange={e => setFormData({...formData, institution: e.target.value})} />
+                  <label><Building2 size={14} color="var(--primary)" /> Institución Educativa *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Ej. UMSA, Franz Tamayo, EMI..." 
+                    value={formData.institution} 
+                    onChange={e => setFormData({...formData, institution: e.target.value})} 
+                  />
                 </div>
+
                 <div className="input-group">
-                  <label>Enviar a (Encargado)</label>
+                  <label><Briefcase size={14} color="var(--primary)" /> Enviar a (Encargado) *</label>
                   <select required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}>
                     <option value="" disabled>Seleccione a su Encargado...</option>
                     <option value="Hector Calle">Hector Calle</option>
@@ -454,134 +509,286 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             ) : (
               <>
                 <div className="input-group">
-                  <label>Nombre del Remitente</label>
-                  <input type="text" disabled value={formData.name} />
+                  <label><User size={14} color="var(--primary)" /> Nombre del Encargado</label>
+                  <input type="text" disabled value={formData.name} style={{ opacity: 0.8 }} />
                 </div>
                 <div className="input-group">
-                  <label>Destinatario Fijo</label>
-                  <input type="text" disabled value="RR.HH (Administrador)" />
+                  <label><Building2 size={14} color="var(--primary)" /> Destinatario</label>
+                  <input type="text" disabled value="RR.HH (Administración General)" style={{ opacity: 0.8 }} />
                 </div>
               </>
             )}
+
             <div className="input-group">
-              <label>Turno</label>
+              <label><Clock size={14} color="var(--primary)" /> Turno Asignado *</label>
               <select required value={formData.turno} onChange={e => setFormData({...formData, turno: e.target.value})}>
                 <option value="" disabled>Seleccione turno...</option>
-                <option value="Mañana">Mañana</option>
-                <option value="Tarde">Tarde</option>
-                <option value="Jornada Completa">Jornada Completa</option>
+                <option value="Mañana">Mañana (08:00 - 13:00)</option>
+                <option value="Tarde">Tarde (14:00 - 19:00)</option>
+                <option value="Jornada Completa">Jornada Completa (Doble Turno)</option>
               </select>
             </div>
           </div>
         </div>
 
+        {/* SECCIÓN 2: ACTIVIDADES REALIZADAS */}
         <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--primary-light)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
-            <h3 style={{ margin: 0 }}>2. Actividades Realizadas</h3>
-            <button type="button" className="btn btn-secondary" onClick={handleAddActivity} style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>
-              <Plus size={16} /> Agregar Actividad
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ 
+                width: '32px', height: '32px', borderRadius: 'var(--radius-sm)', 
+                background: 'var(--primary-light)', color: 'var(--primary)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.9rem' 
+              }}>
+                02
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Bitácora de Tareas Ejecutadas</h3>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>Describe puntualmente cada labor y adjunta su respaldo</p>
+              </div>
+            </div>
+
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              onClick={handleAddActivity} 
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+            >
+              <Plus size={16} /> Agregar Nueva Actividad
             </button>
           </div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {activities.map((act, index) => (
-              <div key={act.id} style={{ background: 'rgba(0,0,0,0.1)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-border)', position: 'relative' }}>
-                
-                {activities.length > 1 && (
-                  <button type="button" onClick={() => handleRemoveActivity(act.id)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer' }} title="Eliminar Actividad">
-                    <Trash2 size={18} />
-                  </button>
-                )}
-                
-                <h4 style={{ color: 'var(--primary-dark)', marginBottom: '1rem' }}>Actividad #{index + 1}</h4>
-                
-                <div className="input-group">
-                  <label>Descripción de la Tarea</label>
-                  <textarea required placeholder="Describe detalladamente qué hiciste..." value={act.description} onChange={e => handleActivityChange(act.id, 'description', e.target.value)} style={{ minHeight: '80px' }}></textarea>
+              <div 
+                key={act.id} 
+                style={{ 
+                  background: 'var(--surface-secondary)', 
+                  padding: '1.35rem', 
+                  borderRadius: 'var(--radius-md)', 
+                  border: '1px solid var(--surface-border)', 
+                  position: 'relative',
+                  transition: 'var(--transition)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="badge badge-primary" style={{ padding: '0.2rem 0.55rem' }}>
+                      Tarea #{index + 1}
+                    </span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      {act.description ? `${act.description.length} caracteres` : 'Sin contenido aún'}
+                    </span>
+                  </div>
+
+                  {activities.length > 1 && (
+                    <button 
+                      type="button" 
+                      onClick={() => handleRemoveActivity(act.id)} 
+                      style={{ 
+                        background: 'transparent', 
+                        border: 'none', 
+                        color: 'var(--error)', 
+                        cursor: 'pointer', 
+                        padding: '0.3rem',
+                        borderRadius: 'var(--radius-xs)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        fontSize: '0.8rem'
+                      }} 
+                      title="Eliminar esta actividad"
+                    >
+                      <Trash2 size={16} />
+                      <span style={{ fontWeight: 500 }}>Quitar</span>
+                    </button>
+                  )}
                 </div>
                 
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  <div className="input-group" style={{ flex: 1, minWidth: '200px' }}>
-                    <label>Adjuntar Evidencia (Imagen, PDF, Word o Video)</label>
-                    <div style={{ position: 'relative', overflow: 'hidden' }}>
-                      <input type="file" accept="image/*,.pdf,.doc,.docx,video/*" onChange={(e) => handleFileChange(act.id, e)} style={{ position: 'absolute', opacity: 0, left: 0, top: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10, clipPath: 'none' }} />
-                      <button type="button" className="btn btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', background: 'rgba(255,255,255,0.1)', position: 'relative', zIndex: 1 }}>
-                        <Upload size={18} /> {act.fileName || 'Seleccionar Archivo (Máx 800KB)'}
-                      </button>
-                    </div>
+                <div className="input-group">
+                  <label>Descripción de la Actividad *</label>
+                  <textarea 
+                    required 
+                    placeholder="Describe de forma clara y técnica la labor desempeñada..." 
+                    value={act.description} 
+                    onChange={e => handleActivityChange(act.id, 'description', e.target.value)} 
+                    style={{ minHeight: '85px' }}
+                  />
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
+                  
+                  {/* ADJUNTAR ARCHIVO */}
+                  <div className="input-group">
+                    <label><Upload size={14} color="var(--primary)" /> Evidencia Digital (Foto, PDF, Word)</label>
                     
-                    {act.fileBase64 && act.fileType === 'image' && (
-                      <div style={{ marginTop: '1rem', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-md)', padding: '0.5rem', background: 'rgba(0,0,0,0.1)' }}>
-                        <img src={act.fileBase64} alt={`Evidencia ${index + 1}`} style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '4px' }} />
+                    {!act.fileName ? (
+                      <div style={{ position: 'relative', overflow: 'hidden' }}>
+                        <input 
+                          type="file" 
+                          accept="image/*,.pdf,.doc,.docx,video/*" 
+                          onChange={(e) => handleFileChange(act.id, e)} 
+                          style={{ 
+                            position: 'absolute', opacity: 0, left: 0, top: 0, 
+                            width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 
+                          }} 
+                        />
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary" 
+                          style={{ 
+                            width: '100%', justifyContent: 'center', 
+                            border: '1px dashed var(--surface-border-strong)', 
+                            background: 'var(--surface)',
+                            padding: '0.85rem'
+                          }}
+                        >
+                          <Upload size={16} color="var(--primary)" /> 
+                          Subir Evidencia (Imagen / PDF)
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ 
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                        background: 'var(--surface)', border: '1px solid var(--surface-border-strong)', 
+                        padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)' 
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', overflow: 'hidden' }}>
+                          {act.fileType === 'image' ? (
+                            <ImageIcon size={20} color="var(--primary)" />
+                          ) : (
+                            <FileCheck size={20} color="var(--success)" />
+                          )}
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {act.fileName}
+                          </span>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => removeFileAttachment(act.id)}
+                          style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '0.2rem' }}
+                          title="Eliminar archivo adjunto"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     )}
                     
-                    {act.fileName && act.fileType !== 'image' && (
-                      <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <FileText size={24} color={act.fileType === 'word' ? '#2563eb' : act.fileType === 'video' ? '#ff3b30' : 'var(--primary)'} />
-                        <span style={{ fontWeight: 500 }}>Archivo {act.fileType === 'word' ? 'Word' : act.fileType === 'pdf' ? 'PDF' : act.fileType === 'video' ? 'Video' : 'Adjunto'} listo ({act.fileName})</span>
+                    {act.fileBase64 && act.fileType === 'image' && (
+                      <div style={{ marginTop: '0.65rem', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-sm)', padding: '0.4rem', background: 'var(--surface)', textAlign: 'center' }}>
+                        <img 
+                          src={act.fileBase64} 
+                          alt={`Evidencia ${index + 1}`} 
+                          style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '6px' }} 
+                        />
                       </div>
                     )}
                   </div>
                   
-                  <div className="input-group" style={{ flex: 1, minWidth: '200px' }}>
-                    <label>Enlace Externo (Opcional)</label>
-                    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', padding: '0 0.8rem', borderRadius: 'var(--radius-md)' }}>
-                      <LinkIcon size={16} color="var(--text-muted)" />
-                      <input type="url" placeholder="https://..." value={act.link} onChange={e => handleActivityChange(act.id, 'link', e.target.value)} style={{ border: 'none', background: 'transparent', boxShadow: 'none', color: 'var(--text-main)' }} />
+                  {/* ENLACE EXTERNO */}
+                  <div className="input-group">
+                    <label><LinkIcon size={14} color="var(--primary)" /> Enlace de Respaldo (Canva, Drive, Figma)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--surface-border)', padding: '0 0.85rem', borderRadius: 'var(--radius-sm)' }}>
+                      <LinkIcon size={15} color="var(--text-muted)" />
+                      <input 
+                        type="url" 
+                        placeholder="https://drive.google.com/..." 
+                        value={act.link} 
+                        onChange={e => handleActivityChange(act.id, 'link', e.target.value)} 
+                        style={{ border: 'none', background: 'transparent', boxShadow: 'none' }} 
+                      />
                     </div>
                   </div>
+
                 </div>
               </div>
             ))}
           </div>
         </div>
 
+        {/* SECCIÓN 3: CONCLUSIONES */}
         <div className="glass-card">
-          <h3 style={{ borderBottom: '2px solid var(--primary-light)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
-            3. Conclusión Final
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.85rem' }}>
+            <div style={{ 
+              width: '32px', height: '32px', borderRadius: 'var(--radius-sm)', 
+              background: 'var(--primary-light)', color: 'var(--primary)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.9rem' 
+            }}>
+              03
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Conclusión Final & Resumen del Día</h3>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>Síntesis global de los logros y observaciones del día</p>
+            </div>
+          </div>
+
           <div className="input-group">
-            <label>Resumen del Día</label>
-            <textarea required placeholder="Escribe una conclusión general..." value={formData.conclusion} onChange={e => setFormData({...formData, conclusion: e.target.value})}></textarea>
+            <textarea 
+              required 
+              placeholder="Resume los resultados alcanzados, metas concluidas o pendientes para la siguiente jornada..." 
+              value={formData.conclusion} 
+              onChange={e => setFormData({...formData, conclusion: e.target.value})}
+              style={{ minHeight: '105px' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              <span>Mínimo 10 caracteres requeridos.</span>
+              <span>{formData.conclusion.length} caracteres</span>
+            </div>
           </div>
         </div>
 
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        {/* BARRA DE ACCIÓN INFERIOR */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          gap: '1rem', 
+          flexWrap: 'wrap', 
+          background: 'var(--surface)', 
+          padding: '1.25rem', 
+          borderRadius: 'var(--radius-md)', 
+          border: '1px solid var(--surface-border)', 
+          boxShadow: 'var(--shadow-sm)' 
+        }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             {isEncargadoMode && onCancel && (
-              <button type="button" onClick={onCancel} className="btn btn-secondary hide-on-pdf">
+              <button type="button" onClick={onCancel} className="btn btn-secondary">
                 Cancelar
               </button>
             )}
-            <button type="button" onClick={exportPDF} disabled={isGeneratingPDF} className="btn btn-secondary hide-on-pdf">
-              {isGeneratingPDF ? <Loader className="animate-spin" size={18} /> : <FileDown size={18} />}
-              Descargar Copia
+            <button 
+              type="button" 
+              onClick={exportPDF} 
+              disabled={isGeneratingPDF} 
+              className="btn btn-secondary"
+              title="Descarga una copia preliminar en PDF"
+            >
+              {isGeneratingPDF ? <Loader className="animate-spin" size={17} /> : <FileDown size={17} />}
+              Descargar Copia PDF
             </button>
           </div>
           
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button 
-              type="submit" 
-              className="btn btn-primary" 
-              style={{ flex: 1, padding: '1rem', fontSize: '1.1rem', justifyContent: 'center' }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader className="animate-spin" size={24} /> 
-                  {uploadStatus || 'Enviando...'}
-                </>
-              ) : (
-                <>
-                  <Send size={24} /> 
-                  {isEncargadoMode ? 'Enviar al Administrador' : 'Enviar a Encargado'}
-                </>
-              )}
-            </button>
-          </div>
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            style={{ padding: '0.85rem 2rem', fontSize: '1rem' }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader className="animate-spin" size={20} /> 
+                {uploadStatus || 'Enviando...'}
+              </>
+            ) : (
+              <>
+                <Send size={18} /> 
+                {isEncargadoMode ? 'Enviar al Administrador' : 'Enviar Reporte Oficial'}
+              </>
+            )}
+          </button>
+        </div>
 
       </form>
     </div>
   );
 }
-

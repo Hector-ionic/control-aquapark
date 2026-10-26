@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, ArrowLeft, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
+import { 
+  Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, 
+  Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, 
+  ArrowLeft, CheckCircle, AlertTriangle, AlertCircle, ShieldCheck, RefreshCw,
+  Building2, GraduationCap, UserCheck, Calendar, Sparkles, Check
+} from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
 import { db } from '../firebase';
@@ -28,10 +33,10 @@ class ReportErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="glass-panel" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid red' }}>
-          <h2 style={{ color: '#ef4444' }}>Error al cargar el reporte</h2>
-          <p>Ocurrió un fallo en el navegador al intentar renderizar este reporte específico.</p>
-          <pre style={{ background: 'rgba(0,0,0,0.5)', padding: '1rem', overflowX: 'auto', fontSize: '0.8rem', color: '#fca5a5' }}>
+        <div className="glass-panel" style={{ background: 'var(--error-bg)', border: '1px solid var(--error-border)' }}>
+          <h2 style={{ color: 'var(--error)' }}>Error al renderizar el reporte</h2>
+          <p>Ocurrió una excepción al procesar los datos de este informe.</p>
+          <pre style={{ background: 'rgba(0,0,0,0.4)', padding: '1rem', borderRadius: 'var(--radius-sm)', overflowX: 'auto', fontSize: '0.8rem', color: '#fca5a5' }}>
             {this.state.error?.toString()}
           </pre>
           <button className="btn btn-secondary" onClick={this.props.onReset} style={{ marginTop: '1rem' }}>
@@ -54,7 +59,7 @@ export default function SupervisorDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [filterTurno, setFilterTurno] = useState('Todos');
-  const [filterMonth, setFilterMonth] = useState(''); // Evita que se oculten automáticamente al cambiar de mes
+  const [filterMonth, setFilterMonth] = useState('');
   const [isDeletingOld, setIsDeletingOld] = useState(false);
   
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -76,12 +81,12 @@ export default function SupervisorDashboard() {
   const filteredReports = useMemo(() => {
     return reports
       .filter(r => showTrash ? r.isDeleted === true : (r.isDeleted !== true))
-      .filter(r => r.student?.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(r => (r.student?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || (r.career?.toLowerCase() || '').includes(searchTerm.toLowerCase()))
       .filter(r => filterTurno === 'Todos' || r.turno === filterTurno)
       .filter(r => {
-        if (!filterMonth) return true; // Si el filtro está vacío, mostrar todos
+        if (!filterMonth) return true;
         if (!r.createdAt) return true; 
-        const date = r.createdAt.toDate();
+        const date = r.createdAt.toDate ? r.createdAt.toDate() : new Date();
         const reportMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         return reportMonth === filterMonth;
       });
@@ -106,15 +111,14 @@ export default function SupervisorDashboard() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `reportes_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `reportes_aquapark_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success("Archivo CSV generado exitosamente");
   };
 
   const handleDownloadFile = async (e, url, fileName) => {
     e.preventDefault();
-    
-    // Si la URL viene de Cloudinary y tiene fl_attachment, lo removemos para evitar el Error 401
     let safeUrl = url;
     if (safeUrl.includes('cloudinary.com')) {
       safeUrl = safeUrl.replace(/fl_attachment(:[^/]*)?\//g, '');
@@ -135,7 +139,6 @@ export default function SupervisorDashboard() {
       window.URL.revokeObjectURL(objectUrl);
     } catch (error) {
       console.error('Error downloading file:', error);
-      // Fallback seguro usando la URL limpia
       window.open(safeUrl, '_blank');
     }
   };
@@ -148,9 +151,9 @@ export default function SupervisorDashboard() {
     if (userObj && userObj.password === loginData.password) {
       setCurrentUser({ id: userKey, ...userObj });
       setError('');
-      // fetchReports(userKey); -> Ya no es necesario, el useEffect escucha a currentUser
+      toast.success(`Bienvenido(a), ${userObj.displayName}`);
     } else {
-      setError('Credenciales incorrectas. Intenta nuevamente.');
+      setError('Credenciales incorrectas. Verifica tu usuario y contraseña.');
     }
   };
 
@@ -158,30 +161,23 @@ export default function SupervisorDashboard() {
     if (!currentUser) return;
     
     setIsLoading(true);
-    
     const userObj = USERS[currentUser.id] || {};
     const isGlobalAdmin = userObj.role === 'Administrador';
     
     let q;
     if (isGlobalAdmin) {
-      // Admin ve los últimos 1000 globales
       q = query(collection(db, "reports"), orderBy("createdAt", "desc"), limit(1000));
     } else {
-      // Encargados obtienen absolutamente todos sus reportes. 
-      // Esto asegura que nunca "desaparezcan" hasta que los archiven manualmente.
       q = query(collection(db, "reports"), where("supervisor", "==", currentUser.id));
     }
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedReports = [];
-      const userObj = USERS[currentUser.id] || {};
-      const isGlobalAdmin = userObj.role === 'Administrador';
+      const isGlobalAdmin = (USERS[currentUser.id] || {}).role === 'Administrador';
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        
         const dbSupervisor = (data.supervisor || '').toLowerCase().trim();
-        // Si no es admin, solo ve los suyos (ignorando mayúsculas)
         if (!isGlobalAdmin && dbSupervisor !== currentUser.id) return;
 
         if (data.turno === 'Mañana' || data.turno === 'Jornada Completa') data.timeStart = '08:00';
@@ -204,61 +200,19 @@ export default function SupervisorDashboard() {
     return () => unsubscribe();
   }, [currentUser]);
 
-  const fetchReports = async (supervisorName) => {
-    // Ya no hacemos nada manual porque onSnapshot actualiza en tiempo real
-  
-  // AUTO-ELIMINACIÓN DE MESES ANTERIORES (solo al loguearse como Admin Global)
-  useEffect(() => {
-    if (!currentUser || currentUser.role !== 'Global Administrator') return;
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    
-    const cleanOldReports = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "reports"));
-        const batch = [];
-        snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data.createdAt && data.createdAt.toDate) {
-            const reportDate = data.createdAt.toDate();
-            if (reportDate.getFullYear() < currentYear || 
-                (reportDate.getFullYear() === currentYear && reportDate.getMonth() < currentMonth)) {
-              batch.push(docSnap.ref);
-            }
-          }
-        });
-        if (batch.length > 0) {
-          const { deleteDoc } = await import('firebase/firestore');
-          for (const docRef of batch) {
-            await deleteDoc(docRef);
-          }
-          console.log(`🧹 Limpieza automática: ${batch.length} reportes antiguos eliminados.`);
-          toast.success(`Limpieza automática: ${batch.length} reportes de meses anteriores eliminados.`);
-        }
-      } catch (err) {
-        console.error("Error en limpieza automática:", err);
-      }
-    };
-    cleanOldReports();
-  }, [currentUser]);
-
-  // Dejamos la función para no romper el botón ACTUALIZAR
-    console.log("Actualización en tiempo real activa.");
-  };
-
   const handleDeleteReport = async (reportId, e) => {
-    e.stopPropagation(); // Evitar abrir el detalle
-    if (window.confirm("¿Estás seguro de que quieres archivar este reporte?")) {
+    e.stopPropagation();
+    if (window.confirm("¿Deseas archivar este reporte? Podrás consultarlo en la sección de Archivados.")) {
       try {
         await updateDoc(doc(db, "reports", reportId), { isDeleted: true });
         setReports(reports.map(r => r.id === reportId ? { ...r, isDeleted: true } : r));
         if (selectedReport && selectedReport.id === reportId) {
-           setSelectedReport(null);
+          setSelectedReport(null);
         }
+        toast.success("Reporte archivado");
       } catch (err) {
-        console.error("Error al eliminar:", err);
-        toast("Hubo un error al eliminar el reporte.");
+        console.error("Error al archivar:", err);
+        toast.error("Hubo un error al archivar el reporte.");
       }
     }
   };
@@ -269,11 +223,12 @@ export default function SupervisorDashboard() {
       await updateDoc(doc(db, "reports", reportId), { isDeleted: false });
       setReports(reports.map(r => r.id === reportId ? { ...r, isDeleted: false } : r));
       if (selectedReport && selectedReport.id === reportId) {
-         setSelectedReport(null);
+        setSelectedReport({ ...selectedReport, isDeleted: false });
       }
+      toast.success("Reporte restaurado a la bandeja principal");
     } catch (err) {
       console.error("Error restaurando:", err);
-      toast("Hubo un error al restaurar el reporte.");
+      toast.error("Hubo un error al restaurar el reporte.");
     }
   };
 
@@ -285,24 +240,24 @@ export default function SupervisorDashboard() {
       if (selectedReport && selectedReport.id === reportId) {
         setSelectedReport({ ...selectedReport, status: newStatus });
       }
+      toast.success(`Estado actualizado a: ${newStatus}`);
     } catch (err) {
       console.error("Error al actualizar estado:", err);
-      toast("Hubo un error al cambiar el estado.");
+      toast.error("Hubo un error al actualizar el estado.");
     }
   };
 
   const handleMassDeleteOldReports = async () => {
-    if (!window.confirm("¡ATENCIÓN! Esto eliminará DEFINITIVAMENTE todos los reportes (y su información) de meses anteriores al actual. Las imágenes en Cloudinary quedarán huérfanas pero la base de datos se limpiará. ¿Deseas continuar?")) return;
+    if (!window.confirm("¡ATENCIÓN! Esto eliminará DEFINITIVAMENTE todos los reportes de meses anteriores al actual. ¿Deseas continuar?")) return;
     
     setIsDeletingOld(true);
     const d = new Date();
     const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    
     let deletedCount = 0;
     
     for (const report of reports) {
       if (!report.createdAt) continue;
-      const rDate = report.createdAt.toDate();
+      const rDate = report.createdAt.toDate ? report.createdAt.toDate() : new Date();
       const reportMonth = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`;
       
       if (reportMonth !== currentMonth) {
@@ -316,7 +271,7 @@ export default function SupervisorDashboard() {
     }
     
     setIsDeletingOld(false);
-    toast(`Limpieza completada. Se eliminaron ${deletedCount} reportes antiguos definitivamente.`);
+    toast.success(`Limpieza completada: ${deletedCount} reportes antiguos depurados.`);
   };
 
   const exportPDF = () => {
@@ -325,7 +280,7 @@ export default function SupervisorDashboard() {
     
     const opt = {
       margin:       0.5,
-      filename:     `Comprobante_${selectedReport.student}_${selectedReport.dateString.replace(/\//g, '-')}.pdf`,
+      filename:     `Comprobante_${selectedReport.student || 'Reporte'}_${(selectedReport.dateString || '').replace(/\//g, '-')}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
@@ -336,304 +291,343 @@ export default function SupervisorDashboard() {
     html2pdf().set(opt).from(element).save().then(() => {
       element.style.display = 'none';
       setIsGeneratingPDF(false);
+      toast.success("Comprobante en PDF descargado");
     });
   };
 
+  // VISTA 1: LOGIN ADMINISTRATIVO
   if (!currentUser) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '65vh', padding: '1rem' }}>
+        <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '420px', padding: '2.25rem' }}>
+          
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h2 style={{ marginBottom: '0.5rem' }}>Acceso Administrativo</h2>
-            <p style={{ margin: 0 }}>Inicia sesión para revisar tu buzón de reportes.</p>
+            <div style={{ 
+              width: '56px', height: '56px', borderRadius: 'var(--radius-md)', 
+              background: 'var(--primary-light)', color: 'var(--primary)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1rem', border: '1px solid var(--accent-glow)'
+            }}>
+              <ShieldCheck size={28} />
+            </div>
+            <h2 style={{ marginBottom: '0.35rem', fontSize: '1.4rem' }}>Portal de Supervisión</h2>
+            <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+              Acceso exclusivo para Encargados de Área y Administración
+            </p>
           </div>
           
           {error && (
-            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)', color: 'var(--error)', padding: '0.8rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.9rem', textAlign: 'center' }}>
-              {error}
+            <div style={{ 
+              background: 'var(--error-bg)', border: '1px solid var(--error-border)', 
+              color: 'var(--error)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', 
+              marginBottom: '1.25rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' 
+            }}>
+              <AlertCircle size={16} />
+              <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div className="input-group">
-              <label>Usuario / Encargado</label>
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', padding: '0 0.8rem', borderRadius: 'var(--radius-md)' }}>
-                <Mail size={18} color="var(--text-muted)" />
-                <select 
-                  required
-                  value={loginData.username}
-                  onChange={e => setLoginData({...loginData, username: e.target.value})}
-                  style={{ border: 'none', background: 'transparent', boxShadow: 'none', width: '100%', padding: '0.85rem 0.5rem', cursor: 'pointer', outline: 'none', color: 'var(--text-main)' }}
-                >
-                  <option value="" disabled>Selecciona tu perfil...</option>
-                  <option value="hector calle">Hector Calle</option>
-                  <option value="lizeth de la cruz">Lizeth de la Cruz</option>
-                  <option value="alvaro mendoza">Alvaro Mendoza</option>
-                  <option value="limbert tito">Limbert Tito</option>
-                  <option value="camila alejo">Camila Alejo</option>
-                  <option value="yven cardozo">Yven Cardozo</option>
-                  <option value="moises ramos">Moises Ramos</option>
-                  <option value="administrador">Administrador</option>
-                </select>
-              </div>
+              <label><Mail size={14} color="var(--primary)" /> Selecciona tu Perfil</label>
+              <select 
+                required
+                value={loginData.username}
+                onChange={e => setLoginData({...loginData, username: e.target.value})}
+              >
+                <option value="" disabled>Selecciona tu cuenta...</option>
+                <option value="hector calle">Hector Calle (Encargado)</option>
+                <option value="lizeth de la cruz">Lizeth de la Cruz (Encargada)</option>
+                <option value="alvaro mendoza">Alvaro Mendoza (Encargado)</option>
+                <option value="limbert tito">Limbert Tito (Encargado)</option>
+                <option value="camila alejo">Camila Alejo (Encargada)</option>
+                <option value="yven cardozo">Yven Cardozo (Encargado)</option>
+                <option value="moises ramos">Moises Ramos (Encargado)</option>
+                <option value="administrador">Administrador General</option>
+              </select>
             </div>
             
             <div className="input-group">
-              <label>Contraseña</label>
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', padding: '0 0.8rem', borderRadius: 'var(--radius-md)' }}>
-                <Key size={18} color="var(--text-muted)" />
+              <label><Key size={14} color="var(--primary)" /> Contraseña</label>
+              <div style={{ position: 'relative' }}>
                 <input 
                   type={showPassword ? 'text' : 'password'} 
                   required
-                  placeholder="••••••••"
+                  placeholder="Introduce tu contraseña"
                   value={loginData.password}
                   onChange={e => setLoginData({...loginData, password: e.target.value})}
-                  style={{ border: 'none', background: 'transparent', boxShadow: 'none', color: 'var(--text-main)' }}
+                  style={{ paddingRight: '2.5rem' }}
                 />
-                <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}>
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ 
+                    position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem'
+                  }}
+                  title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
             </div>
             
-            <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>
+            <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '0.85rem' }}>
+              <ShieldCheck size={18} />
               Iniciar Sesión
             </button>
           </form>
+
+          <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--surface-border)', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-subtle)' }}>
+              AquaPark Corporate Platform • Seguridad SSL
+            </span>
+          </div>
         </div>
       </div>
     );
   }
 
+  // VISTA 2: DETALLE DEL REPORTE SELECCIONADO
   if (selectedReport) {
     return (
       <ReportErrorBoundary onReset={() => setSelectedReport(null)}>
-        <div className="animate-fade-in glass-panel" style={{ position: 'relative' }}>
+        <div className="animate-fade-in glass-panel" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
           
-          {/* PLANTILLA PDF OCULTA PARA EL ENCARGADO */}
-        <div id="supervisor-pdf-formal-template" style={{ display: 'none', background: 'white', color: 'black', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-          <div style={{ textAlign: 'center', borderBottom: '2px solid #1e3a8a', paddingBottom: '15px', marginBottom: '20px' }}>
-            <h1 style={{ color: '#1e3a8a', margin: '0 0 10px 0', fontSize: '24px' }}>INFORME DIARIO DE ACTIVIDADES</h1>
-            <p style={{ margin: 0, color: '#4b5563', fontSize: '14px' }}>Control AquaPark - Comprobante de Aprobación</p>
-          </div>
-
-          <table style={{ width: '100%', marginBottom: '25px', borderCollapse: 'collapse' }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold', width: '30%' }}>Fecha y Horario:</td>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>
-                  {selectedReport.dateString} | <strong>Inicio:</strong> {selectedReport.timeStart || 'N/A'} - <strong>Envío:</strong> {selectedReport.timeEnd || 'N/A'}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Remitente (Quien Reporta):</td>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{selectedReport.student || 'Sin especificar'}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Carrera / Institución:</td>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{selectedReport.career || '-'} / {selectedReport.institution || '-'}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Destinatario:</td>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{selectedReport.supervisorOriginal || selectedReport.supervisor}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>Turno:</td>
-                <td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{selectedReport.turno || 'No especificado'}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h2 style={{ color: '#1e3a8a', fontSize: '18px', borderBottom: '1px solid #e5e7eb', paddingBottom: '5px' }}>Actividades Realizadas</h2>
-          {selectedReport.activities?.map((act, idx) => (
-            <div key={idx} style={{ marginBottom: '20px', pageBreakInside: 'avoid' }}>
-              <h3 style={{ fontSize: '16px', margin: '10px 0 5px 0' }}>{idx + 1}. Tarea Ejecutada</h3>
-              <p style={{ margin: '0 0 10px 0', fontSize: '14px', lineHeight: '1.5' }}>{act.description || 'Sin descripción'}</p>
-              {act.link && (
-                <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}><strong>Referencia:</strong> <a href={act.link} style={{ color: '#2563eb' }}>{act.link}</a></p>
-              )}
-              
-              {(act.fileType === 'image' || (!act.fileType && (act.imageBase64 || act.fileUrl))) && (
-                <div style={{ marginTop: '10px', textAlign: 'center' }}>
-                  <p style={{ margin: '0 0 5px 0', fontSize: '14px', textAlign: 'left' }}><strong>Evidencia Fotográfica:</strong></p>
-                  <img src={act.fileBase64 || act.fileUrl || act.imageBase64} style={{ maxWidth: '400px', maxHeight: '300px', border: '1px solid #e5e7eb', padding: '5px' }} alt="Evidencia" />
-                </div>
-              )}
-
-              {(act.fileType === 'pdf' || act.fileType === 'word') && (
-                <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                  <p style={{ margin: 0, fontSize: '14px' }}>
-                    <strong>{act.fileType === 'pdf' ? '📄 Documento PDF Adjunto:' : '📝 Documento Word Adjunto:'}</strong> {act.fileName}
-                  </p>
-                </div>
-              )}
-
-              {(act.fileType === 'video') && (
-                <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                  <p style={{ margin: 0, fontSize: '14px' }}>
-                    <strong>🎥 Video Adjunto:</strong> {act.fileName} (Ver en el sistema web)
-                  </p>
-                </div>
-              )}
+          {/* PLANTILLA PDF OCULTA PARA COMPROBANTE */}
+          <div id="supervisor-pdf-formal-template" style={{ display: 'none', background: 'white', color: 'black', padding: '24px', fontFamily: 'Arial, sans-serif' }}>
+            <div style={{ textAlign: 'center', borderBottom: '2px solid #0284c7', paddingBottom: '15px', marginBottom: '20px' }}>
+              <h1 style={{ color: '#0369a1', margin: '0 0 6px 0', fontSize: '22px' }}>COMPROBANTE OFICIAL DE REPORTE</h1>
+              <p style={{ margin: 0, color: '#475569', fontSize: '13px' }}>Control AquaPark — Sistema de Aprobación de Actividades</p>
             </div>
-          ))}
 
-          <div style={{ marginTop: '30px', pageBreakInside: 'avoid' }}>
-            <h2 style={{ color: '#1e3a8a', fontSize: '18px', borderBottom: '1px solid #e5e7eb', paddingBottom: '5px' }}>Conclusión del Día</h2>
-            <p style={{ fontSize: '14px', lineHeight: '1.6', fontStyle: 'italic', backgroundColor: '#f9fafb', padding: '15px', borderLeft: '4px solid #1e3a8a' }}>
-              {selectedReport.conclusion || 'Sin conclusión proporcionada.'}
-            </p>
-          </div>
-          
-          <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-around', pageBreakInside: 'avoid' }}>
-            <div style={{ borderTop: '1px solid black', width: '200px', textAlign: 'center', paddingTop: '10px' }}>
-              <strong>Firma del Remitente</strong><br/>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>{selectedReport.student}</span>
-            </div>
-            <div style={{ borderTop: '1px solid black', width: '200px', textAlign: 'center', paddingTop: '10px' }}>
-              <strong>Firma de Aprobación</strong><br/>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>{selectedReport.supervisorOriginal || 'Sello y Firma'}</span>
-            </div>
-          </div>
-        </div>
+            <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold', width: '30%' }}>Fecha y Horario:</td>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>
+                    {selectedReport.dateString} | Inicio: {selectedReport.timeStart || 'N/A'} — Cierre: {selectedReport.timeEnd || 'N/A'}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Remitente:</td>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>{selectedReport.student || 'Sin especificar'}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Carrera / Institución:</td>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>{selectedReport.career || '-'} / {selectedReport.institution || '-'}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Encargado Destino:</td>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>{selectedReport.supervisorOriginal || selectedReport.supervisor}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Turno:</td>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>{selectedReport.turno || 'No especificado'}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Estado Actual:</td>
+                  <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', fontWeight: 'bold', color: selectedReport.status === 'Aprobado' ? '#10b981' : '#f59e0b' }}>
+                    {selectedReport.status || 'Nuevo'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-        {/* UI PRINCIPAL DEL DETALLE */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <button onClick={() => setSelectedReport(null)} className="btn btn-solid-warning">
-            <ArrowLeft size={18} /> Volver a la Bandeja
-          </button>
-          
-          <button onClick={exportPDF} disabled={isGeneratingPDF} className="btn btn-primary">
-            {isGeneratingPDF ? <Loader className="animate-spin" size={20} /> : <FileDown size={20} />}
-            {isGeneratingPDF ? 'Generando Comprobante...' : 'Descargar Comprobante PDF (Para Firma)'}
-          </button>
-        </div>
-        
-        <div style={{ borderBottom: '2px solid var(--primary-light)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                <h2 style={{ margin: 0 }}>Reporte de {selectedReport.student} {selectedReport.isDeleted ? '(ARCHIVADO)' : ''}</h2>
-                {selectedReport.status === 'Aprobado' && <span style={{ background: 'var(--success)', color: '#ffffff', fontSize: '0.7rem', padding: '0.2rem 0.6rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>APROBADO</span>}
-                {selectedReport.status === 'Observado' && <span style={{ background: '#F59E0B', color: '#ffffff', fontSize: '0.7rem', padding: '0.2rem 0.6rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>OBSERVADO</span>}
-                {(!selectedReport.status || selectedReport.status === 'Nuevo') && <span style={{ background: 'var(--primary)', color: '#ffffff', fontSize: '0.7rem', padding: '0.2rem 0.6rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>NUEVO</span>}
+            <h2 style={{ color: '#0369a1', fontSize: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px' }}>Actividades Ejecutadas</h2>
+            {selectedReport.activities?.map((act, idx) => (
+              <div key={idx} style={{ marginBottom: '16px', pageBreakInside: 'avoid', borderBottom: '1px dashed #e2e8f0', paddingBottom: '10px' }}>
+                <h3 style={{ fontSize: '13px', margin: '8px 0 4px 0' }}>{idx + 1}. Tarea Ejecutada:</h3>
+                <p style={{ margin: '0 0 6px 0', fontSize: '13px', lineHeight: '1.5' }}>{act.description || 'Sin descripción'}</p>
+                {act.link && (
+                  <p style={{ margin: '0 0 6px 0', fontSize: '12px' }}><strong>Referencia digital:</strong> {act.link}</p>
+                )}
+                {act.fileName && (
+                  <p style={{ margin: 0, fontSize: '12px' }}><strong>Evidencia adjunta:</strong> {act.fileName}</p>
+                )}
               </div>
-              <p style={{ margin: 0 }}><strong>Carrera/Área:</strong> {selectedReport.career} | <strong>Institución:</strong> {selectedReport.institution}</p>
-              <p style={{ margin: 0 }}><strong>Fecha:</strong> {selectedReport.dateString} | <strong>Turno:</strong> {selectedReport.turno || 'N/A'} | <strong>Horario:</strong> Inicio {selectedReport.timeStart || 'N/A'} - Envío {selectedReport.timeEnd || 'N/A'}</p>
+            ))}
+
+            <div style={{ marginTop: '24px', pageBreakInside: 'avoid' }}>
+              <h2 style={{ color: '#0369a1', fontSize: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px' }}>Conclusión del Remitente</h2>
+              <p style={{ fontSize: '13px', lineHeight: '1.6', fontStyle: 'italic', backgroundColor: '#f8fafc', padding: '12px', borderLeft: '4px solid #0284c7' }}>
+                {selectedReport.conclusion || 'Sin conclusión proporcionada.'}
+              </p>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button onClick={(e) => handleUpdateStatus(selectedReport.id, 'Aprobado', e)} className="btn" style={{ background: 'var(--success)', borderColor: 'var(--success)', color: '#fff', padding: '0.6rem 1rem' }}>
-                <CheckCircle size={18} /> Aprobar
+            
+            <div style={{ marginTop: '45px', display: 'flex', justifyContent: 'space-around', pageBreakInside: 'avoid' }}>
+              <div style={{ borderTop: '1px solid black', width: '200px', textAlign: 'center', paddingTop: '8px' }}>
+                <strong style={{ fontSize: '12px' }}>Firma del Remitente</strong><br/>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>{selectedReport.student}</span>
+              </div>
+              <div style={{ borderTop: '1px solid black', width: '200px', textAlign: 'center', paddingTop: '8px' }}>
+                <strong style={{ fontSize: '12px' }}>Sello y Firma Encargado</strong><br/>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>{selectedReport.supervisorOriginal || 'Aprobado'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* BARRA SUPERIOR DE ACCIONES */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '1rem' }}>
+            <button onClick={() => setSelectedReport(null)} className="btn btn-secondary">
+              <ArrowLeft size={16} /> Volver a la Bandeja
+            </button>
+            
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <button onClick={exportPDF} disabled={isGeneratingPDF} className="btn btn-primary">
+                {isGeneratingPDF ? <Loader className="animate-spin" size={16} /> : <FileDown size={16} />}
+                Descargar Comprobante PDF
               </button>
-              <button onClick={(e) => handleUpdateStatus(selectedReport.id, 'Observado', e)} className="btn" style={{ background: '#F59E0B', borderColor: '#F59E0B', color: '#fff', padding: '0.6rem 1rem' }}>
-                <AlertCircle size={18} /> Observar
+            </div>
+          </div>
+          
+          {/* HEADER DEL REPORTE */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.25rem' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                <h2 style={{ margin: 0, fontSize: '1.6rem' }}>{selectedReport.student}</h2>
+                {selectedReport.status === 'Aprobado' && <span className="badge badge-success">Aprobado</span>}
+                {selectedReport.status === 'Observado' && <span className="badge badge-warning">Observado</span>}
+                {(!selectedReport.status || selectedReport.status === 'Nuevo') && <span className="badge badge-primary">Nuevo</span>}
+                {selectedReport.isDeleted && <span className="badge badge-neutral">Archivado</span>}
+              </div>
+              
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <GraduationCap size={15} color="var(--primary)" /> {selectedReport.career}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Building2 size={15} color="var(--primary)" /> {selectedReport.institution}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Calendar size={15} color="var(--primary)" /> {selectedReport.dateString}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Clock size={15} color="var(--primary)" /> {selectedReport.turno} ({selectedReport.timeStart || '--'} → {selectedReport.timeEnd || '--'})
+                </span>
+              </div>
+            </div>
+
+            {/* BOTONES DE CAMBIO DE ESTADO */}
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button 
+                onClick={(e) => handleUpdateStatus(selectedReport.id, 'Aprobado', e)} 
+                className="btn" 
+                style={{ background: 'var(--success-bg)', color: 'var(--success)', border: '1px solid var(--success-border)', padding: '0.55rem 0.95rem' }}
+              >
+                <CheckCircle size={16} /> Aprobar
+              </button>
+              <button 
+                onClick={(e) => handleUpdateStatus(selectedReport.id, 'Observado', e)} 
+                className="btn" 
+                style={{ background: 'var(--warning-bg)', color: 'var(--warning)', border: '1px solid var(--warning-border)', padding: '0.55rem 0.95rem' }}
+              >
+                <AlertCircle size={16} /> Observar
               </button>
               {selectedReport.isDeleted ? (
-                <button onClick={(e) => handleRestoreReport(selectedReport.id, e)} className="btn btn-primary" style={{ padding: '0.6rem 1rem' }}>
-                  <LinkIcon size={18} /> Desarchivar
+                <button onClick={(e) => handleRestoreReport(selectedReport.id, e)} className="btn btn-secondary" style={{ padding: '0.55rem 0.95rem' }}>
+                  <RefreshCw size={16} /> Restaurar
                 </button>
               ) : (
-                <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-secondary" style={{ padding: '0.6rem 1rem' }}>
-                  <Trash2 size={18} /> Archivar
+                <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-danger" style={{ padding: '0.55rem 0.95rem' }}>
+                  <Trash2 size={16} /> Archivar
                 </button>
               )}
             </div>
           </div>
-        </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <div>
-            <h3 style={{ color: 'var(--primary-dark)', marginBottom: '1rem' }}>Actividades Realizadas</h3>
+          {/* LISTA DE ACTIVIDADES */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Actividades Realizadas ({selectedReport.activities?.length || 0})</h3>
+            
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {selectedReport.activities?.map((act, i) => {
                 const isImage = act.fileType === 'image' || (!act.fileType && (act.imageBase64 || act.fileUrl));
                 const isDoc = act.fileType === 'pdf' || act.fileType === 'word';
                 const isVideo = act.fileType === 'video';
                 const fileSource = act.fileUrl || act.fileBase64 || act.imageBase64;
-                const fileName = act.fileName || `evidencia_actividad_${i+1}`;
+                const fileName = act.fileName || `Evidencia_Tarea_${i + 1}`;
 
                 return (
-                  <div key={i} style={{ background: 'var(--surface-secondary)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-border)' }}>
-                    <h4 style={{ marginBottom: '0.5rem' }}>Actividad #{i + 1}</h4>
-                    <p style={{ color: 'var(--text-main)' }}>{act.description}</p>
+                  <div key={i} className="glass-card" style={{ padding: '1.25rem', background: 'var(--surface-secondary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                      <span className="badge badge-primary">Tarea #{i + 1}</span>
+                      {act.link && (
+                        <a href={act.link} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}>
+                          <LinkIcon size={14} /> Abrir Enlace
+                        </a>
+                      )}
+                    </div>
                     
+                    <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.6', margin: 0 }}>
+                      {act.description}
+                    </p>
+                    
+                    {/* PREVIEWS DE ARCHIVO */}
                     {isImage && fileSource && (
-                      <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--surface)', borderRadius: 'var(--radius-md)', display: 'inline-block', border: '1px solid var(--surface-border)' }}>
-                        <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--text-main)' }}>Evidencia Fotográfica:</p>
-                        <img src={fileSource} alt={`Evidencia ${i+1}`} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px' }} />
+                      <div style={{ marginTop: '1rem', padding: '0.65rem', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Evidencia Fotográfica:</span>
+                          <a href={fileSource} onClick={(e) => handleDownloadFile(e, fileSource, `${fileName}.jpg`)} className="btn btn-secondary" style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}>
+                            <FileDown size={14} /> Descargar Imagen
+                          </a>
+                        </div>
+                        <img src={fileSource} alt={`Evidencia ${i + 1}`} style={{ maxWidth: '100%', maxHeight: '350px', objectFit: 'contain', borderRadius: '4px' }} />
                       </div>
                     )}
 
                     {isDoc && fileSource && (
-                      <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <FileText size={24} color={act.fileType === 'word' ? '#2563eb' : 'var(--primary)'} />
-                        <span style={{ fontWeight: 500 }}>Documento {act.fileType === 'word' ? 'Word' : 'PDF'} Adjunto: {fileName}</span>
+                      <div style={{ marginTop: '0.85rem', padding: '0.85rem 1rem', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--surface-border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <FileText size={22} color="var(--primary)" />
+                          <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{fileName}</span>
+                        </div>
+                        <a href={fileSource} onClick={(e) => handleDownloadFile(e, fileSource, fileName)} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}>
+                          <FileDown size={15} /> Descargar
+                        </a>
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                      {isImage && fileSource && (
-                        <a href={fileSource} onClick={(e) => handleDownloadFile(e, fileSource, `${fileName}.jpg`)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: 'pointer' }}>
-                          <ImageIcon size={16} /> Descargar Imagen
-                        </a>
-                      )}
-                      
-                      {isDoc && fileSource && (
-                        <a href={fileSource} onClick={(e) => handleDownloadFile(e, fileSource, fileName)} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: 'pointer' }}>
-                          <FileDown size={16} /> Descargar {act.fileType === 'word' ? 'Word' : 'PDF'} Adjunto
-                        </a>
-                      )}
-
-                      {isVideo && fileSource && (
-                        <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', fontSize: '0.9rem' }}>Video Adjunto:</p>
-                          <video controls src={fileSource} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            Tu navegador no soporta video.
-                          </video>
-                          <a href={fileSource} onClick={(e) => handleDownloadFile(e, fileSource, `${fileName}.mp4`)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: 'pointer', alignSelf: 'flex-start' }}>
-                            <FileDown size={16} /> Descargar Video
-                          </a>
-                        </div>
-                      )}
-
-                      {act.link && (
-                        <a href={act.link} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-                          <LinkIcon size={16} /> Abrir Enlace
-                        </a>
-                      )}
-                    </div>
+                    {isVideo && fileSource && (
+                      <div style={{ marginTop: '1rem', padding: '0.85rem', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-border)' }}>
+                        <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600, fontSize: '0.85rem' }}>Video Adjunto:</p>
+                        <video controls src={fileSource} style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '4px' }}>
+                          Tu navegador no soporta video.
+                        </video>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div style={{ background: 'var(--surface-secondary)', padding: '1.5rem', border: '1px solid var(--surface-border)', borderLeft: '3px solid var(--primary)', borderRadius: 'var(--radius-md)' }}>
-            <h3 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>Conclusión</h3>
-            <p style={{ margin: 0, color: 'var(--text-main)', fontStyle: 'italic' }}>"{selectedReport.conclusion}"</p>
+          {/* CONCLUSIÓN */}
+          <div style={{ background: 'var(--surface-secondary)', padding: '1.35rem', border: '1px solid var(--surface-border)', borderLeft: '4px solid var(--primary)', borderRadius: 'var(--radius-md)' }}>
+            <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--primary)', fontSize: '0.95rem' }}>Conclusión de la Jornada</h4>
+            <p style={{ margin: 0, color: 'var(--text-main)', fontStyle: 'italic', fontSize: '0.92rem' }}>
+              "{selectedReport.conclusion}"
+            </p>
           </div>
+
         </div>
-      </div>
       </ReportErrorBoundary>
     );
   }
 
-  const statCardStyle = {
-    flex: '1 1 150px', padding: '1.2rem', background: 'var(--surface-secondary)',
-    border: '1px solid var(--surface-border)', textAlign: 'center',
-    borderRadius: 'var(--radius-md)'
-  };
-
+  // VISTA 3: REDACCIÓN DE INFORME PARA ENCARGADO
   if (view === 'compose') {
     return (
-      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
         <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h2 style={{ marginBottom: '0.2rem' }}>Redactar Informe para RR.HH</h2>
-            <p style={{ margin: 0 }}>Completa tu reporte de encargado. Será enviado directamente al Administrador.</p>
+            <h2 style={{ margin: 0 }}>Redactar Informe Gerencial</h2>
+            <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+              Este informe será emitido directamente a la Administración Central.
+            </p>
           </div>
-          <button className="btn btn-solid-warning" onClick={() => setView('inbox')}>
-            <ArrowLeft size={18} /> Volver a Bandeja
+          <button className="btn btn-secondary" onClick={() => setView('inbox')}>
+            <ArrowLeft size={16} /> Volver a Bandeja
           </button>
         </div>
         <StudentForm isEncargadoMode={true} encargadoName={currentUser.displayName} onCancel={() => setView('inbox')} />
@@ -641,175 +635,293 @@ export default function SupervisorDashboard() {
     );
   }
 
+  // VISTA 4: BANDEJA PRINCIPAL DE SUPERVISIÓN
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
       
-      <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* HEADER DE BIENVENIDA */}
+      <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
         <div>
-          <h2 style={{ marginBottom: '0.2rem' }}>Bandeja de Entrada ({currentUser.role})</h2>
-          <p style={{ margin: 0 }}>Bienvenido(a), <strong>{currentUser.displayName}</strong>. Estos son los reportes que has recibido.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+            <span className="badge badge-primary">
+              <ShieldCheck size={13} /> {currentUser.role}
+            </span>
+            <span className="badge badge-neutral">Sesión Activa</span>
+          </div>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>
+            Panel de {currentUser.displayName}
+          </h2>
+          <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+            Monitoreo en tiempo real de actividades y reportes asignados.
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
           {currentUser.role !== 'Administrador' && (
-            <button className="btn btn-primary" onClick={() => setView('compose')} style={{ padding: '0.5rem 1rem' }}>
-              <FileText size={16} /> REDACTAR INFORME
+            <button className="btn btn-primary" onClick={() => setView('compose')}>
+              <FileText size={16} /> Redactar Informe
             </button>
           )}
-          <button className="btn btn-primary" onClick={exportCSV} style={{ padding: '0.5rem 1rem' }}>
-            <Download size={16} /> EXPORTAR CSV
+          <button className="btn btn-secondary" onClick={exportCSV} title="Descargar histórico en CSV / Excel">
+            <Download size={16} /> Exportar CSV
           </button>
-          <button className="btn btn-solid-danger" onClick={() => setCurrentUser(null)}>
-            <LogOut size={18} /> SALIR
+          <button className="btn btn-danger" onClick={() => setCurrentUser(null)} title="Cerrar sesión de supervisor">
+            <LogOut size={16} /> Salir
           </button>
         </div>
       </div>
 
-      {/* ALERTA DE FIN DE MES */}
+      {/* ALERTA DE FIN DE MES (SOLO ADMIN) */}
       {currentUser?.role === 'Administrador' && new Date().getDate() >= 25 && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid var(--error)', padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ 
+          background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', 
+          padding: '1.15rem', borderRadius: 'var(--radius-md)', 
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' 
+        }}>
           <div>
-            <h3 style={{ color: 'var(--error)', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><AlertTriangle size={20}/> ¡Se acerca fin de mes!</h3>
-            <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.9rem' }}>Te sugerimos exportar en CSV todos los reportes importantes. Por rendimiento, se recomienda ejecutar la limpieza mensual pronto.</p>
+            <h4 style={{ color: 'var(--warning)', margin: '0 0 0.35rem 0', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <AlertTriangle size={18} /> Cierre mensual próximo
+            </h4>
+            <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.85rem' }}>
+              Se sugiere descargar el consolidado en CSV antes de ejecutar la limpieza periódica de la base de datos.
+            </p>
           </div>
-          <button onClick={handleMassDeleteOldReports} disabled={isDeletingOld} className="btn btn-danger">
+          <button onClick={handleMassDeleteOldReports} disabled={isDeletingOld} className="btn btn-solid-warning" style={{ padding: '0.55rem 1rem' }}>
             {isDeletingOld ? <Loader className="animate-spin" size={16} /> : <Trash2 size={16} />} 
-            Ejecutar Limpieza Mensual
+            Limpieza Mensual
           </button>
         </div>
       )}
 
       {/* ANALYTICS PANEL */}
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-        <div style={statCardStyle}>
-          <BarChart3 size={28} color="var(--primary)" style={{ margin: '0 auto 0.5rem' }} />
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--primary)', fontFamily: 'Space Grotesk, monospace' }}>{stats.total}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Reportes</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+        
+        <div className="glass-card" style={{ padding: '1.25rem', borderTop: '3px solid var(--primary)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Total Reportes
+            </span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BarChart3 size={16} color="var(--primary)" />
+            </div>
+          </div>
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-main)', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stats.total}
+          </div>
         </div>
-        <div style={statCardStyle}>
-          <Clock size={28} color="var(--success)" style={{ margin: '0 auto 0.5rem' }} />
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success)', fontFamily: 'Space Grotesk, monospace' }}>{stats.today}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Hoy</div>
+
+        <div className="glass-card" style={{ padding: '1.25rem', borderTop: '3px solid var(--success)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Ingresados Hoy
+            </span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--success-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Clock size={16} color="var(--success)" />
+            </div>
+          </div>
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--success)', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stats.today}
+          </div>
         </div>
-        <div style={statCardStyle}>
-          <Sun size={28} color="#FBBF24" style={{ margin: '0 auto 0.5rem' }} />
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: '#FBBF24', fontFamily: 'Space Grotesk, monospace' }}>{stats.manana}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Mañana</div>
+
+        <div className="glass-card" style={{ padding: '1.25rem', borderTop: '3px solid #f59e0b' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Turno Mañana
+            </span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sun size={16} color="#f59e0b" />
+            </div>
+          </div>
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#f59e0b', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stats.manana}
+          </div>
         </div>
-        <div style={statCardStyle}>
-          <Moon size={28} color="#818CF8" style={{ margin: '0 auto 0.5rem' }} />
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: '#818CF8', fontFamily: 'Space Grotesk, monospace' }}>{stats.tarde}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Tarde</div>
+
+        <div className="glass-card" style={{ padding: '1.25rem', borderTop: '3px solid #8b5cf6' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Turno Tarde
+            </span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(139, 92, 246, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Moon size={16} color="#8b5cf6" />
+            </div>
+          </div>
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#8b5cf6', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stats.tarde}
+          </div>
         </div>
+
       </div>
 
-      <div className="glass-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h3 style={{ margin: 0 }}>Reportes Recientes</h3>
-          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', padding: '0 0.8rem', borderRadius: 'var(--radius-md)' }}>
-              <Search size={16} color="var(--primary)" />
+      {/* BARRA DE FILTROS Y BÚSQUEDA */}
+      <div className="glass-card" style={{ padding: '1.5rem' }}>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Bitácoras Recibidas</h3>
+            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Mostrando {filteredReports.length} {filteredReports.length === 1 ? 'registro' : 'registros'}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            
+            {/* BUSCADOR */}
+            <div style={{ position: 'relative', width: '220px' }}>
+              <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input 
                 type="text" 
-                placeholder="Buscar remitente..."
+                placeholder="Buscar por nombre o carrera..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ border: 'none', background: 'transparent', boxShadow: 'none', padding: '0.5rem', fontSize: '0.9rem', width: '180px' }}
+                style={{ paddingLeft: '2.4rem', fontSize: '0.85rem', padding: '0.55rem 0.75rem 0.55rem 2.25rem' }}
               />
             </div>
+
+            {/* FILTRO MES */}
             <input 
               type="month"
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', color: 'var(--text-main)', cursor: 'pointer', borderRadius: 'var(--radius-md)' }}
+              title="Filtrar por mes"
+              style={{ width: 'auto', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
             />
+
+            {/* FILTRO TURNO */}
             <select 
               value={filterTurno} 
               onChange={(e) => setFilterTurno(e.target.value)}
-              style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem', background: 'var(--surface-secondary)', border: '1px solid var(--surface-border)', color: 'var(--text-main)', cursor: 'pointer', borderRadius: 'var(--radius-md)' }}
+              style={{ width: 'auto', padding: '0.55rem 0.85rem', fontSize: '0.85rem' }}
             >
               <option value="Todos">Todos los Turnos</option>
-              <option value="Mañana">Mañana</option>
-              <option value="Tarde">Tarde</option>
+              <option value="Mañana">Turno Mañana</option>
+              <option value="Tarde">Turno Tarde</option>
               <option value="Jornada Completa">Jornada Completa</option>
             </select>
+
+            {/* BOTÓN PAPELERA */}
             <button 
               onClick={() => setShowTrash(!showTrash)} 
               className={`btn ${showTrash ? 'btn-primary' : 'btn-secondary'}`} 
-              style={{ padding: '0.4rem 0.8rem' }}
+              style={{ padding: '0.55rem 0.9rem', fontSize: '0.85rem' }}
               title="Ver reportes archivados"
             >
-              <Trash2 size={16} /> {showTrash ? 'Ocultar Archivados' : 'Archivados'}
+              <Trash2 size={15} /> {showTrash ? 'Viendo Archivados' : 'Archivados'}
             </button>
-            <button onClick={() => fetchReports(currentUser.id)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem' }}>
-              ACTUALIZAR
-            </button>
+
           </div>
         </div>
 
+        {/* CONTENIDO DE LA LISTA */}
         {isLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3.5rem 0', gap: '0.75rem' }}>
             <Loader className="animate-spin" size={32} color="var(--primary)" />
+            <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Sincronizando reportes con la base de datos...</span>
           </div>
         ) : filteredReports.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            {reports.length === 0 ? 'No tienes reportes nuevos.' : 'No se encontraron reportes con ese filtro.'}
+          <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
+            <FileText size={40} color="var(--text-subtle)" style={{ margin: '0 auto 0.75rem' }} />
+            <p style={{ margin: 0, fontWeight: 600 }}>No hay reportes para mostrar</p>
+            <span style={{ fontSize: '0.82rem' }}>
+              {reports.length === 0 ? 'Aún no se han recibido registros en este buzón.' : 'Prueba cambiando los filtros de búsqueda.'}
+            </span>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {filteredReports.map(report => {
-              const isNew = report.createdAt ? (Math.abs(new Date() - report.createdAt.toDate()) / 36e5) < 24 : false;
-              const turnoColor = report.turno === 'Mañana' ? '#FBBF24' : report.turno === 'Tarde' ? '#818CF8' : 'var(--primary)';
+              const isNew = report.createdAt ? (Math.abs(new Date() - (report.createdAt.toDate ? report.createdAt.toDate() : new Date())) / 36e5) < 24 : false;
+              const turnoBorder = report.turno === 'Mañana' ? '#f59e0b' : report.turno === 'Tarde' ? '#8b5cf6' : 'var(--primary)';
+
               return (
-              <div key={report.id} style={{ 
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                padding: '1rem 1.2rem', background: 'var(--surface)', 
-                border: '1px solid var(--surface-border)',
-                borderLeft: `3px solid ${turnoColor}`,
-                borderRadius: 'var(--radius-md)',
-                transition: 'var(--transition)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', flex: 1 }} onClick={() => setSelectedReport(report)}>
-                  <div style={{ background: `${turnoColor}22`, padding: '0.7rem', border: `1px solid ${turnoColor}`, color: turnoColor, borderRadius: 'var(--radius-md)' }}>
-                    <FileText size={22} />
+                <div 
+                  key={report.id} 
+                  style={{ 
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                    padding: '1rem 1.25rem', background: 'var(--surface)', 
+                    border: '1px solid var(--surface-border)',
+                    borderLeft: `4px solid ${turnoBorder}`,
+                    borderRadius: 'var(--radius-sm)',
+                    transition: 'var(--transition)',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setSelectedReport(report)}
+                  className="glass-card"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                    <div style={{ 
+                      width: '42px', height: '42px', borderRadius: '50%', 
+                      background: 'var(--primary-light)', color: 'var(--primary)', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 700, fontSize: '1rem'
+                    }}>
+                      {(report.student || 'U')[0].toUpperCase()}
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{report.student}</h4>
+                        {(!report.status || report.status === 'Nuevo') && isNew && (
+                          <span className="badge badge-primary">Nuevo</span>
+                        )}
+                        {report.status === 'Aprobado' && (
+                          <span className="badge badge-success">Aprobado</span>
+                        )}
+                        {report.status === 'Observado' && (
+                          <span className="badge badge-warning">Observado</span>
+                        )}
+                        {report.turno && (
+                          <span className="badge badge-neutral">{report.turno}</span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', gap: '0.6rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
+                        <span>{report.career}</span>
+                        <span>•</span>
+                        <span>{report.dateString}</span>
+                        <span>•</span>
+                        <span>{report.timeStart || '--'} → {report.timeEnd || '--'}</span>
+                        <span>•</span>
+                        <span>{report.activities?.length || 0} tareas</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem' }}>{report.student}</h4>
-                      {(!report.status || report.status === 'Nuevo') && isNew && <span style={{ background: 'var(--primary)', color: '#ffffff', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>NUEVO</span>}
-                      {report.status === 'Aprobado' && <span style={{ background: 'var(--success)', color: '#ffffff', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>APROBADO</span>}
-                      {report.status === 'Observado' && <span style={{ background: '#F59E0B', color: '#ffffff', fontSize: '0.6rem', padding: '0.15rem 0.5rem', fontWeight: 'bold', letterSpacing: '1px', borderRadius: '4px' }}>OBSERVADO</span>}
-                      {report.turno && <span style={{ color: turnoColor, fontSize: '0.7rem', border: `1px solid ${turnoColor}`, padding: '0.1rem 0.4rem', fontWeight: 600, borderRadius: '4px' }}>{report.turno}</span>}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '0.8rem', marginTop: '0.3rem' }}>
-                      <span>{report.career}</span>
-                      <span style={{ color: 'var(--surface-border)' }}>|</span>
-                      <span>{report.dateString}</span>
-                      <span style={{ color: 'var(--surface-border)' }}>|</span>
-                      <span>{report.timeStart || '--:--'} → {report.timeEnd || '--:--'}</span>
-                    </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
+                    <button 
+                      className="btn btn-secondary" 
+                      onClick={() => setSelectedReport(report)} 
+                      style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
+                    >
+                      <Eye size={15} /> Ver Detalle
+                    </button>
+                    {report.isDeleted ? (
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={(e) => handleRestoreReport(report.id, e)} 
+                        style={{ padding: '0.45rem 0.65rem' }} 
+                        title="Restaurar a bandeja principal"
+                      >
+                        <RefreshCw size={15} />
+                      </button>
+                    ) : (
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={(e) => handleDeleteReport(report.id, e)} 
+                        style={{ padding: '0.45rem 0.65rem' }} 
+                        title="Archivar reporte"
+                      >
+                        <Trash2 size={15} color="var(--error)" />
+                      </button>
+                    )}
                   </div>
                 </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <button className="btn btn-secondary" onClick={() => setSelectedReport(report)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
-                    <Eye size={16} /> VER
-                  </button>
-                  {report.isDeleted ? (
-                    <button className="btn btn-primary" onClick={(e) => handleRestoreReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Desarchivar">
-                      <LinkIcon size={16} />
-                    </button>
-                  ) : (
-                    <button className="btn btn-secondary" onClick={(e) => handleDeleteReport(report.id, e)} style={{ padding: '0.4rem 0.6rem' }} title="Archivar">
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )})}
+              );
+            })}
           </div>
         )}
+
       </div>
     </div>
   );
 }
-
