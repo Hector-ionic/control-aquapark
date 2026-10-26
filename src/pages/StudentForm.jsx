@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, 
   FileText, Clock, Calendar, User, Briefcase, GraduationCap, Building2, 
-  CheckCircle2, Sparkles, Image as ImageIcon, AlertCircle, FileCheck
+  CheckCircle2, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, X
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
@@ -59,6 +59,24 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [submittedReport, setSubmittedReport] = useState(null);
+
+  const handleCloseSuccessModal = () => {
+    setSubmittedReport(null);
+    if (isEncargadoMode && onCancel) {
+      onCancel();
+    } else {
+      setFormData({ 
+        name: authUser?.name || '', 
+        career: '', 
+        institution: '', 
+        supervisor: '', 
+        turno: '', 
+        conclusion: '' 
+      });
+      setActivities([{ id: 1, description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
+    }
+  };
   
   const [formData, setFormData] = useState({
     name: isEncargadoMode ? encargadoName : '',
@@ -317,20 +335,11 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         }
       });
 
-      const wantsPDF = window.confirm("¡Reporte enviado con éxito al encargado!\n\n¿Deseas descargar tu comprobante en PDF antes de limpiar el formulario?");
-      
-      if (wantsPDF) {
-        await exportPDF();
-      }
-      
-      if (isEncargadoMode && onCancel) {
-        onCancel();
-      } else {
-        setFormData({ name: '', career: '', institution: '', supervisor: '', turno: '', conclusion: '' });
-        setActivities([{ id: 1, description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
-      }
-      
-      toast.success("✅ ¡Bitácora enviada exitosamente!");
+      setSubmittedReport({
+        id: docRef?.id,
+        ...reportData
+      });
+      toast.success("✅ ¡Bitácora registrada con éxito!");
     } catch (error) {
       console.error("Error subiendo reporte: ", error);
       toast.error(error.message || "Error al procesar el reporte.");
@@ -835,6 +844,134 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         </div>
 
       </form>
+
+      {/* MODAL CORPORATIVO DE CONFIRMACIÓN DE ÉXITO */}
+      {submittedReport && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.78)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div className="glass-panel animate-fade-in" style={{
+            maxWidth: '520px',
+            width: '100%',
+            textAlign: 'center',
+            padding: '2.5rem',
+            boxShadow: 'var(--shadow-xl)',
+            border: '1px solid var(--accent-glow)',
+            position: 'relative',
+            background: 'var(--surface)'
+          }}>
+            <button
+              onClick={handleCloseSuccessModal}
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '0.25rem'
+              }}
+              title="Cerrar"
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{
+              width: '70px',
+              height: '70px',
+              borderRadius: '50%',
+              background: 'var(--success-bg)',
+              color: 'var(--success)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem',
+              border: '2px solid var(--success-border)',
+              boxShadow: '0 0 24px rgba(16, 185, 129, 0.25)'
+            }}>
+              <CheckCircle2 size={40} />
+            </div>
+
+            <span className="badge badge-success" style={{ marginBottom: '0.5rem', fontSize: '0.75rem' }}>
+              Registro Completado
+            </span>
+
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0.5rem 0' }}>
+              ¡Bitácora Enviada con Éxito!
+            </h2>
+
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+              Tu informe fue remitido formalmente a <strong>{submittedReport.supervisorOriginal || submittedReport.supervisor}</strong> y archivado con trazabilidad en el sistema.
+            </p>
+
+            {/* TARJETA DE RESUMEN DEL FOLIO */}
+            <div style={{
+              background: 'var(--surface-secondary)',
+              border: '1px solid var(--surface-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1rem 1.25rem',
+              textAlign: 'left',
+              marginBottom: '1.75rem',
+              fontSize: '0.85rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid var(--surface-border)', marginBottom: '0.5rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Folio de Registro:</span>
+                <strong style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--primary)' }}>
+                  #AP-{submittedReport.id ? submittedReport.id.slice(0, 7).toUpperCase() : '2026'}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Remitente:</span>
+                <strong>{submittedReport.student}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Turno Asignado:</span>
+                <span>{submittedReport.turno}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Tareas Reportadas:</span>
+                <span>{submittedReport.activities?.length || 0} labores documentadas</span>
+              </div>
+            </div>
+
+            {/* BOTONES DE ACCIÓN */}
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={exportPDF}
+                disabled={isGeneratingPDF}
+                className="btn btn-primary"
+                style={{ flex: '1 1 200px', padding: '0.85rem 1.25rem' }}
+              >
+                {isGeneratingPDF ? <Loader className="animate-spin" size={17} /> : <FileDown size={17} />}
+                <span>Descargar Comprobante PDF</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCloseSuccessModal}
+                className="btn btn-secondary"
+                style={{ flex: '1 1 170px', padding: '0.85rem 1.25rem' }}
+              >
+                {isEncargadoMode ? 'Volver a la Bandeja' : 'Nuevo Reporte'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
