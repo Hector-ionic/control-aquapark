@@ -8,15 +8,15 @@ import {
 import toast from 'react-hot-toast';
 
 export default function Login() {
-  const { login, quickLogin, user, role, predefinedUsers } = useAuth();
+  const { login, user, role } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [formData, setFormData] = useState({
     name: '',
-    email: 'admin@aquapark.com',
-    password: 'admin',
-    role: 'admin' // 'admin' | 'encargado' | 'pasante'
+    email: '',
+    password: '',
+    role: 'admin'
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -53,12 +53,7 @@ export default function Login() {
     }
   };
 
-  const handleQuickAccess = (predefined) => {
-    const loggedUser = quickLogin(predefined);
-    toast.success(`Acceso rápido: ${loggedUser.name} (${loggedUser.role.toUpperCase()})`);
-    const destination = location.state?.from?.pathname || (loggedUser.role === 'pasante' ? '/' : '/supervisor');
-    navigate(destination, { replace: true });
-  };
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', padding: '1rem' }}>
@@ -83,63 +78,6 @@ export default function Login() {
           </p>
         </div>
 
-        {/* ACCESOS RÁPIDOS POR ROL PARA EVALUACIÓN */}
-        <div style={{ marginBottom: '1.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem' }}>
-            <Sparkles size={14} color="var(--primary)" />
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-              Acceso Rápido para Pruebas (1 Clic)
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-            {['admin', 'encargado', 'pasante'].map((roleKey) => {
-              const item = predefinedUsers.find(u => u.role === roleKey) || predefinedUsers[0];
-              const roleColors = {
-                admin: { bg: 'rgba(239, 68, 68, 0.1)', text: 'var(--error)', border: 'rgba(239, 68, 68, 0.3)' },
-                encargado: { bg: 'var(--primary-light)', text: 'var(--primary)', border: 'var(--accent-glow)' },
-                pasante: { bg: 'var(--success-bg)', text: 'var(--success)', border: 'var(--success-border)' }
-              };
-              const style = roleColors[item.role] || roleColors.pasante;
-
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => handleQuickAccess(item)}
-                  style={{
-                    padding: '0.65rem 0.5rem',
-                    background: style.bg,
-                    color: style.text,
-                    border: `1px solid ${style.border}`,
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    transition: 'var(--transition)'
-                  }}
-                  title={`Ingresar como ${item.name} (${item.role})`}
-                >
-                  <span style={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.role}</span>
-                  <span style={{ fontSize: '0.7rem', opacity: 0.85, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                    {item.name.split(' ')[0]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', margin: '1.5rem 0', gap: '0.75rem' }}>
-          <div style={{ flex: 1, height: '1px', background: 'var(--surface-border)' }}></div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textTransform: 'uppercase' }}>O inicia manualmente</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--surface-border)' }}></div>
-        </div>
-
         {/* FORMULARIO MANUAL CON SELECTOR DE ROL */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           
@@ -148,12 +86,9 @@ export default function Login() {
             <select
               value={formData.role}
               onChange={(e) => {
-                const newRole = e.target.value;
                 setFormData({
                   ...formData,
-                  role: newRole,
-                  email: newRole === 'admin' ? 'admin@aquapark.com' : newRole === 'encargado' ? 'hector.calle@aquapark.com' : 'juan.perez@aquapark.com',
-                  password: newRole === 'admin' ? 'admin' : '123'
+                  role: e.target.value
                 });
               }}
               style={{ fontWeight: 600 }}
@@ -213,7 +148,7 @@ export default function Login() {
 
         <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--surface-border)', textAlign: 'center' }}>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            Sesión guardada en <strong>localStorage</strong> (persistente ante recargas F5).
+            AquaPark Corporate Platform • Seguridad SSL
           </span>
         </div>
 
