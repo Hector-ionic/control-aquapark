@@ -1226,19 +1226,7 @@ export default function SupervisorDashboard() {
               </div>
             </div>
 
-            {/* AVISO DE CONSERVACIÓN DE REGISTROS */}
-            <div style={{
-              background: 'var(--primary-light)',
-              border: '1px solid var(--accent-glow)',
-              padding: '0.85rem 1rem',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '0.82rem',
-              color: 'var(--text-main)',
-              lineHeight: 1.5,
-              marginBottom: '1.5rem'
-            }}>
-              💡 <strong>Regla del Sistema:</strong> Al eliminar un encargado, <strong>se retira de la lista para nuevos reportes</strong> de pasantes, pero <strong>todos sus reportes y registros pasados se conservan intactos</strong> en la base de datos para auditoría.
-            </div>
+            
 
             {/* FORMULARIO PARA AGREGAR NUEVO ENCARGADO */}
             <form onSubmit={handleAddSupervisor} style={{
