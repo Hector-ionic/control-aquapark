@@ -594,197 +594,6 @@ export default function SupervisorDashboard() {
             </span>
           </div>
         </div>
-      {/* MODAL DE GESTIÓN DE ENCARGADOS */}
-      {showStaffModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.78)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 99999,
-          padding: '1rem'
-        }}>
-          <div className="glass-panel animate-fade-in" style={{
-            maxWidth: '640px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '2.25rem',
-            position: 'relative',
-            background: 'var(--surface)',
-            boxShadow: 'var(--shadow-xl)',
-            borderRadius: 'var(--radius-lg)'
-          }}>
-            <button
-              onClick={() => setShowStaffModal(false)}
-              style={{
-                position: 'absolute',
-                top: '1.25rem',
-                right: '1.25rem',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '0.25rem'
-              }}
-              title="Cerrar ventana"
-            >
-              <X size={20} />
-            </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              <div style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--primary-light)',
-                color: 'var(--primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Users size={22} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.3rem' }}>Gestión de Encargados de Área</h3>
-                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  Administración de altas, bajas y reincorporación de supervisores
-                </p>
-              </div>
-            </div>
-
-            {/* AVISO DE CONSERVACIÓN DE REGISTROS */}
-            <div style={{
-              background: 'var(--primary-light)',
-              border: '1px solid var(--accent-glow)',
-              padding: '0.85rem 1rem',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '0.82rem',
-              color: 'var(--text-main)',
-              lineHeight: 1.5,
-              marginBottom: '1.5rem'
-            }}>
-              💡 <strong>Regla del Sistema:</strong> Al eliminar un encargado, <strong>se retira de la lista para nuevos reportes</strong> de pasantes, pero <strong>todos sus reportes y registros pasados se conservan intactos</strong> en la base de datos para auditoría.
-            </div>
-
-            {/* FORMULARIO PARA AGREGAR NUEVO ENCARGADO */}
-            <form onSubmit={handleAddSupervisor} style={{
-              background: 'var(--surface-secondary)',
-              border: '1px solid var(--surface-border)',
-              padding: '1.15rem',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: '1.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.85rem'
-            }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                ➕ Registrar Nuevo Encargado
-              </span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-                <input
-                  type="text"
-                  required
-                  placeholder="Nombre Completo (Ej. Carlos Apaza)"
-                  value={newStaff.name}
-                  onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
-                  style={{ fontSize: '0.85rem', padding: '0.55rem 0.85rem' }}
-                />
-                <input
-                  type="text"
-                  placeholder="Área (Ej. Sistemas, Operaciones)"
-                  value={newStaff.area}
-                  onChange={(e) => setNewStaff({ ...newStaff, area: e.target.value })}
-                  style={{ fontSize: '0.85rem', padding: '0.55rem 0.85rem' }}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '0.5rem 1rem', fontSize: '0.82rem' }}>
-                <UserPlus size={15} /> Guardar Encargado
-              </button>
-            </form>
-
-            {/* TABS DE FILTRO: ACTIVOS VS ELIMINADOS */}
-            <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-              <button
-                type="button"
-                onClick={() => setStaffFilter('activos')}
-                className={`btn ${staffFilter === 'activos' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-              >
-                Activos ({staffList.filter(s => !s.deleted).length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStaffFilter('eliminados')}
-                className={`btn ${staffFilter === 'eliminados' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-              >
-                Eliminados / Inactivos ({staffList.filter(s => s.deleted).length})
-              </button>
-            </div>
-
-            {/* LISTA DE ENCARGADOS */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-              {staffList
-                .filter(s => staffFilter === 'activos' ? !s.deleted : s.deleted)
-                .map((sup) => (
-                  <div
-                    key={sup.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '0.75rem 1rem',
-                      background: 'var(--surface-secondary)',
-                      border: '1px solid var(--surface-border)',
-                      borderRadius: 'var(--radius-sm)'
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                        {sup.name}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        {sup.area || 'Sin área asignada'}
-                      </div>
-                    </div>
-
-                    <div>
-                      {!sup.deleted ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSupervisor(sup)}
-                          className="btn btn-danger"
-                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
-                          title="Eliminar de la lista de nuevos reportes"
-                        >
-                          <Trash2 size={14} /> Eliminar
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleRestoreSupervisor(sup)}
-                          className="btn btn-secondary"
-                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
-                          title="Reincorporar a la empresa"
-                        >
-                          <RefreshCw size={14} color="var(--success)" /> Reincorporar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
-
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1344,6 +1153,197 @@ export default function SupervisorDashboard() {
         )}
 
       </div>
+      {/* MODAL DE GESTIÓN DE ENCARGADOS */}
+      {showStaffModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.78)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '1rem'
+        }}>
+          <div className="glass-panel animate-fade-in" style={{
+            maxWidth: '640px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '2.25rem',
+            position: 'relative',
+            background: 'var(--surface)',
+            boxShadow: 'var(--shadow-xl)',
+            borderRadius: 'var(--radius-lg)'
+          }}>
+            <button
+              onClick={() => setShowStaffModal(false)}
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '0.25rem'
+              }}
+              title="Cerrar ventana"
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--primary-light)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Users size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.3rem' }}>Gestión de Encargados de Área</h3>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  Administración de altas, bajas y reincorporación de supervisores
+                </p>
+              </div>
+            </div>
+
+            {/* AVISO DE CONSERVACIÓN DE REGISTROS */}
+            <div style={{
+              background: 'var(--primary-light)',
+              border: '1px solid var(--accent-glow)',
+              padding: '0.85rem 1rem',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.82rem',
+              color: 'var(--text-main)',
+              lineHeight: 1.5,
+              marginBottom: '1.5rem'
+            }}>
+              💡 <strong>Regla del Sistema:</strong> Al eliminar un encargado, <strong>se retira de la lista para nuevos reportes</strong> de pasantes, pero <strong>todos sus reportes y registros pasados se conservan intactos</strong> en la base de datos para auditoría.
+            </div>
+
+            {/* FORMULARIO PARA AGREGAR NUEVO ENCARGADO */}
+            <form onSubmit={handleAddSupervisor} style={{
+              background: 'var(--surface-secondary)',
+              border: '1px solid var(--surface-border)',
+              padding: '1.15rem',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.85rem'
+            }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                ➕ Registrar Nuevo Encargado
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                <input
+                  type="text"
+                  required
+                  placeholder="Nombre Completo (Ej. Carlos Apaza)"
+                  value={newStaff.name}
+                  onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
+                  style={{ fontSize: '0.85rem', padding: '0.55rem 0.85rem' }}
+                />
+                <input
+                  type="text"
+                  placeholder="Área (Ej. Sistemas, Operaciones)"
+                  value={newStaff.area}
+                  onChange={(e) => setNewStaff({ ...newStaff, area: e.target.value })}
+                  style={{ fontSize: '0.85rem', padding: '0.55rem 0.85rem' }}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '0.5rem 1rem', fontSize: '0.82rem' }}>
+                <UserPlus size={15} /> Guardar Encargado
+              </button>
+            </form>
+
+            {/* TABS DE FILTRO: ACTIVOS VS ELIMINADOS */}
+            <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+              <button
+                type="button"
+                onClick={() => setStaffFilter('activos')}
+                className={`btn ${staffFilter === 'activos' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+              >
+                Activos ({staffList.filter(s => !s.deleted).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStaffFilter('eliminados')}
+                className={`btn ${staffFilter === 'eliminados' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+              >
+                Eliminados / Inactivos ({staffList.filter(s => s.deleted).length})
+              </button>
+            </div>
+
+            {/* LISTA DE ENCARGADOS */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              {staffList
+                .filter(s => staffFilter === 'activos' ? !s.deleted : s.deleted)
+                .map((sup) => (
+                  <div
+                    key={sup.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '0.75rem 1rem',
+                      background: 'var(--surface-secondary)',
+                      border: '1px solid var(--surface-border)',
+                      borderRadius: 'var(--radius-sm)'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                        {sup.name}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        {sup.area || 'Sin área asignada'}
+                      </div>
+                    </div>
+
+                    <div>
+                      {!sup.deleted ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSupervisor(sup)}
+                          className="btn btn-danger"
+                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+                          title="Eliminar de la lista de nuevos reportes"
+                        >
+                          <Trash2 size={14} /> Eliminar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreSupervisor(sup)}
+                          className="btn btn-secondary"
+                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+                          title="Reincorporar a la empresa"
+                        >
+                          <RefreshCw size={14} color="var(--success)" /> Reincorporar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
