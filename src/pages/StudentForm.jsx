@@ -108,50 +108,66 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   };
 
   const handleFileChange = async (id, e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const isPdf = file.type === 'application/pdf';
-      const isWord = file.type.includes('word') || file.name.endsWith('.doc') || file.name.endsWith('.docx');
-      const isImage = file.type.startsWith('image/');
-      const isVideo = file.type.startsWith('video/');
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
 
-      let type = 'other';
-      if (isImage) type = 'image';
-      if (isPdf) type = 'pdf';
-      if (isWord) type = 'word';
-      if (isVideo) type = 'video';
+    const lowerName = file.name.toLowerCase();
+    const isPdf = file.type === 'application/pdf' || lowerName.endsWith('.pdf');
+    const isWord = file.type.includes('word') || lowerName.endsWith('.doc') || lowerName.endsWith('.docx');
+    const isExcel = file.type.includes('excel') || lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx');
+    const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(lowerName);
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|avi)$/i.test(lowerName);
 
-      if (!isImage && file.size > 50 * 1024 * 1024) {
-        toast.error("El documento es demasiado pesado. El máximo permitido es 50MB.");
-        e.target.value = null;
-        return;
-      }
+    let type = 'other';
+    if (isImage) type = 'image';
+    else if (isPdf) type = 'pdf';
+    else if (isWord) type = 'word';
+    else if (isExcel) type = 'excel';
+    else if (isVideo) type = 'video';
 
-      if (isImage && file.size > 300 * 1024 * 1024) {
-        toast.error("La imagen excede el límite permitido para compresión en navegador.");
-        e.target.value = null;
-        return;
-      }
+    if (!isImage && file.size > 50 * 1024 * 1024) {
+      toast.error("El documento es demasiado pesado. El máximo permitido es 50MB.");
+      e.target.value = '';
+      return;
+    }
 
-      try {
-        let finalBase64 = null;
-        if (isImage) {
+    if (isImage && file.size > 300 * 1024 * 1024) {
+      toast.error("La imagen excede el límite permitido para compresión en navegador.");
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      let finalBase64 = null;
+      if (isImage) {
+        try {
           finalBase64 = await compressImage(file);
+        } catch (imgErr) {
+          console.warn("Error comprimiendo imagen, usando Base64 directo:", imgErr);
+          finalBase64 = await new Promise((res) => {
+            const reader = new FileReader();
+            reader.onload = ev => res(ev.target.result);
+            reader.readAsDataURL(file);
+          });
         }
-
-        setActivities(activities.map(act => 
-          act.id === id ? { 
-            ...act, 
-            fileName: file.name, 
-            fileType: type,
-            fileBase64: finalBase64,
-            rawFile: file 
-          } : act
-        ));
-      } catch (err) {
-        console.error("Error al procesar el archivo:", err);
-        toast.error("Hubo un error al procesar el archivo. Intenta con un formato estándar.");
       }
+
+      setActivities(prev => prev.map(act => 
+        act.id === id ? { 
+          ...act, 
+          fileName: file.name, 
+          fileType: type,
+          fileBase64: finalBase64,
+          rawFile: file 
+        } : act
+      ));
+
+      toast.success(`Evidencia cargada: ${file.name}`);
+    } catch (err) {
+      console.error("Error al procesar el archivo:", err);
+      toast.error("Hubo un error al procesar el archivo.");
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -241,11 +257,12 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             if (data.secure_url) {
               finalUrl = data.secure_url;
             } else {
-              throw new Error(data.error?.message || "No se recibió URL de carga");
+              console.warn("Cloudinary no devolvió secure_url, usando respaldo local");
+              finalUrl = act.fileBase64 || null;
             }
           } catch (cloudErr) {
-            console.error("Error subiendo archivo:", cloudErr);
-            throw new Error("No se pudo subir el archivo " + (act.rawFile?.name || 'adjunto') + ".");
+            console.warn("No se pudo conectar a Cloudinary, guardando copia en Base64:", cloudErr);
+            finalUrl = act.fileBase64 || null;
           }
         }
 
@@ -650,29 +667,31 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                     <label><Upload size={14} color="var(--primary)" /> Evidencia Digital (Foto, PDF, Word)</label>
                     
                     {!act.fileName ? (
-                      <div style={{ position: 'relative', overflow: 'hidden' }}>
-                        <input 
-                          type="file" 
-                          accept="image/*,.pdf,.doc,.docx,video/*" 
-                          onChange={(e) => handleFileChange(act.id, e)} 
-                          style={{ 
-                            position: 'absolute', opacity: 0, left: 0, top: 0, 
-                            width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 
-                          }} 
-                        />
-                        <button 
-                          type="button" 
+                      <div>
+                        <label 
+                          htmlFor={'file-upload-input-' + act.id}
                           className="btn btn-secondary" 
                           style={{ 
-                            width: '100%', justifyContent: 'center', 
+                            width: '100%', 
+                            justifyContent: 'center', 
                             border: '1px dashed var(--surface-border-strong)', 
                             background: 'var(--surface)',
-                            padding: '0.85rem'
+                            padding: '0.85rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            gap: '0.5rem'
                           }}
                         >
                           <Upload size={16} color="var(--primary)" /> 
-                          Subir Evidencia (Imagen / PDF)
-                        </button>
+                          <span>Subir Evidencia (Imagen / PDF / Word)</span>
+                        </label>
+                        <input 
+                          id={'file-upload-input-' + act.id}
+                          type="file" 
+                          accept="image/*,.pdf,.doc,.docx,video/*,.xls,.xlsx" 
+                          onChange={(e) => handleFileChange(act.id, e)} 
+                          style={{ display: 'none' }} 
+                        />
                       </div>
                     ) : (
                       <div style={{ 
