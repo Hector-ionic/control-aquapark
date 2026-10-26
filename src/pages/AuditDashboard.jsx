@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   ShieldAlert, Activity, Search, Filter, Download, User, Calendar, 
   Clock, CheckCircle, AlertTriangle, FileText, Lock, RefreshCw,
-  ArrowUpDown, Eye, ShieldCheck, Terminal
+  Eye, ShieldCheck, Terminal, RotateCcw, Copy, Check, BarChart2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { 
@@ -15,87 +15,154 @@ import {
 export default function AuditDashboard() {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [logLimit, setLogLimit] = useState(200);
+
+  // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('todos');
   const [selectedAction, setSelectedAction] = useState('todos');
   const [selectedModule, setSelectedModule] = useState('todos');
+  const [timePreset, setTimePreset] = useState('todos'); // 'todos' | 'hoy' | 'semana' | 'mes'
+
+  // Estados visuales
   const [selectedLogDetail, setSelectedLogDetail] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     setIsLoading(true);
     const unsubscribe = subscribeToAuditLogs((data) => {
       setLogs(data);
       setIsLoading(false);
-    }, 500);
+    }, logLimit);
 
     return () => unsubscribe();
+  }, [logLimit]);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    setSelectedRole('todos');
+    setSelectedAction('todos');
+    setSelectedModule('todos');
+    setTimePreset('todos');
+    toast.success('Filtros restablecidos');
   }, []);
 
-  // Métricas rápidas
+  const handleCopyId = useCallback((id) => {
+    if (!id) return;
+    navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    toast.success('ID copiado al portapapeles');
+    setTimeout(() => setCopiedId(null), 2000);
+  }, []);
+
+  // Métricas y distribución porcentual optimizada
   const stats = useMemo(() => {
-    const todayStr = new Date().toLocaleDateString('es-ES', {
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('es-ES', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     });
-    
-    const todayEvents = logs.filter(l => l.dateString === todayStr);
-    const logins = logs.filter(l => l.action?.includes('LOGIN')).length;
-    const reportEvents = logs.filter(l => l.action?.includes('REPORTE')).length;
-    const criticalEvents = logs.filter(l => 
-      l.action === AUDIT_ACTIONS.ELIMINAR_REPORTE || 
-      l.action === AUDIT_ACTIONS.ARCHIVAR_REPORTE
-    ).length;
+
+    let todayCount = 0;
+    let logins = 0;
+    let reports = 0;
+    let revisions = 0;
+    let critical = 0;
+
+    logs.forEach(l => {
+      if (l.dateString === todayStr) todayCount++;
+
+      if (l.action?.includes('LOGIN')) logins++;
+      else if (l.action?.includes('REPORTE') && l.action !== AUDIT_ACTIONS.ELIMINAR_REPORTE) reports++;
+      else if (l.action === AUDIT_ACTIONS.ACTUALIZAR_ESTADO || l.action === AUDIT_ACTIONS.EXPORTAR_CSV) revisions++;
+      else if (l.action === AUDIT_ACTIONS.ELIMINAR_REPORTE || l.action === AUDIT_ACTIONS.ARCHIVAR_REPORTE || l.action === AUDIT_ACTIONS.LOGIN_FALLIDO) critical++;
+    });
+
+    const total = logs.length || 1;
+    const loginPct = Math.round((logins / total) * 100);
+    const reportsPct = Math.round((reports / total) * 100);
+    const revisionsPct = Math.round((revisions / total) * 100);
+    const criticalPct = Math.max(0, 100 - loginPct - reportsPct - revisionsPct);
 
     return {
       total: logs.length,
-      today: todayEvents.length,
+      today: todayCount,
       logins,
-      reportEvents,
-      criticalEvents
+      reports,
+      revisions,
+      critical,
+      percentages: { loginPct, reportsPct, revisionsPct, criticalPct }
     };
   }, [logs]);
 
-  // Filtrado de logs
+  // Filtrado de logs eficiente
   const filteredLogs = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(now.getDate() - 7);
+
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
     return logs.filter(log => {
-      const matchesSearch = 
-        (log.userName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (log.details?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (log.action?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (log.targetId?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+      // 1. Filtro temporal
+      if (timePreset === 'hoy') {
+        if (log.dateString !== todayStr) return false;
+      } else if (timePreset === 'semana') {
+        const logDate = log.createdAt?.toDate ? log.createdAt.toDate() : (log.isoDate ? new Date(log.isoDate) : null);
+        if (logDate && logDate < sevenDaysAgo) return false;
+      } else if (timePreset === 'mes') {
+        const logDate = log.createdAt?.toDate ? log.createdAt.toDate() : (log.isoDate ? new Date(log.isoDate) : null);
+        if (logDate && (logDate.getFullYear() !== currentYear || logDate.getMonth() !== currentMonth)) return false;
+      }
 
-      const matchesRole = 
-        selectedRole === 'todos' || 
-        (log.userRole || '').toLowerCase() === selectedRole.toLowerCase();
+      // 2. Filtro textual
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchesUser = (log.userName?.toLowerCase() || '').includes(term);
+        const matchesDetail = (log.details?.toLowerCase() || '').includes(term);
+        const matchesAction = (log.action?.toLowerCase() || '').includes(term);
+        const matchesTarget = (log.targetId?.toLowerCase() || '').includes(term);
+        if (!matchesUser && !matchesDetail && !matchesAction && !matchesTarget) return false;
+      }
 
-      const matchesAction = 
-        selectedAction === 'todos' || 
-        log.action === selectedAction;
+      // 3. Filtro por Rol
+      if (selectedRole !== 'todos') {
+        if ((log.userRole || '').toLowerCase() !== selectedRole.toLowerCase()) return false;
+      }
 
-      const matchesModule = 
-        selectedModule === 'todos' || 
-        log.module === selectedModule;
+      // 4. Filtro por Acción
+      if (selectedAction !== 'todos') {
+        if (log.action !== selectedAction) return false;
+      }
 
-      return matchesSearch && matchesRole && matchesAction && matchesModule;
+      // 5. Filtro por Módulo
+      if (selectedModule !== 'todos') {
+        if (log.module !== selectedModule) return false;
+      }
+
+      return true;
     });
-  }, [logs, searchTerm, selectedRole, selectedAction, selectedModule]);
+  }, [logs, searchTerm, selectedRole, selectedAction, selectedModule, timePreset]);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     if (filteredLogs.length === 0) {
-      toast.error('No hay registros para exportar');
+      toast.error('No hay registros filtrados para exportar');
       return;
     }
     exportAuditLogsCSV(filteredLogs);
     toast.success('Bitácora de auditoría exportada exitosamente');
-  };
+  }, [filteredLogs]);
 
   const getActionBadge = (action) => {
     switch (action) {
       case AUDIT_ACTIONS.LOGIN_EXITOSO:
         return <span className="badge badge-success">Login Exitoso</span>;
       case AUDIT_ACTIONS.LOGIN_FALLIDO:
-        return <span className="badge badge-error">Login Fallido</span>;
+        return <span className="badge badge-error" style={{ animation: 'pulse 2s infinite' }}>Login Fallido</span>;
       case AUDIT_ACTIONS.CREAR_REPORTE:
         return <span className="badge badge-primary">Reporte Creado</span>;
       case AUDIT_ACTIONS.ACTUALIZAR_ESTADO:
@@ -105,32 +172,37 @@ export default function AuditDashboard() {
       case AUDIT_ACTIONS.RESTAURAR_REPORTE:
         return <span className="badge badge-success">Restaurado</span>;
       case AUDIT_ACTIONS.ELIMINAR_REPORTE:
-        return <span className="badge badge-error">Eliminación</span>;
+        return <span className="badge badge-error">Depuración/Baja</span>;
       case AUDIT_ACTIONS.DESCARGAR_PDF:
-        return <span className="badge badge-secondary">Descarga PDF</span>;
+        return <span className="badge" style={{ background: 'rgba(255, 149, 0, 0.15)', color: '#ff9500' }}>Descarga PDF</span>;
       case AUDIT_ACTIONS.EXPORTAR_CSV:
         return <span className="badge badge-secondary">Exportación CSV</span>;
       default:
-        return <span className="badge">{action || 'Acción'}</span>;
+        return <span className="badge">{action?.replace(/_/g, ' ') || 'Acción'}</span>;
     }
   };
 
   const getRoleBadge = (role) => {
     const r = (role || 'pasante').toLowerCase();
     if (r === 'admin' || r === 'administrador') {
-      return <span className="badge badge-primary" style={{ background: '#7c3aed', color: '#fff' }}>Admin</span>;
+      return <span className="badge badge-primary" style={{ background: '#7c3aed', color: '#fff', border: 'none' }}>Admin</span>;
     }
     if (r === 'encargado') {
       return <span className="badge badge-info">Encargado</span>;
     }
+    if (r === 'desconocido') {
+      return <span className="badge badge-error">Desconocido</span>;
+    }
     return <span className="badge badge-secondary">Pasante</span>;
   };
+
+  const hasActiveFilters = searchTerm !== '' || selectedRole !== 'todos' || selectedAction !== 'todos' || selectedModule !== 'todos' || timePreset !== 'todos';
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: '1280px', margin: '0 auto', padding: '1rem 0 3rem' }}>
       
       {/* Header del módulo */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <h2 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -144,14 +216,36 @@ export default function AuditDashboard() {
           </p>
         </div>
 
-        <button 
-          onClick={handleExportCSV} 
-          className="btn btn-secondary"
-          style={{ padding: '0.65rem 1.1rem', fontSize: '0.88rem' }}
-        >
-          <Download size={17} />
-          Exportar Bitácora CSV
-        </button>
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          <select
+            value={logLimit}
+            onChange={(e) => setLogLimit(Number(e.target.value))}
+            title="Cantidad máxima de registros a cargar"
+            style={{ 
+              padding: '0.55rem 0.8rem', 
+              fontSize: '0.85rem', 
+              borderRadius: 'var(--radius-sm)', 
+              border: '1px solid var(--surface-border)', 
+              background: 'var(--surface-secondary)', 
+              color: 'var(--text-main)',
+              cursor: 'pointer' 
+            }}
+          >
+            <option value={50}>Últimos 50</option>
+            <option value={100}>Últimos 100</option>
+            <option value={200}>Últimos 200</option>
+            <option value={500}>Últimos 500</option>
+          </select>
+
+          <button 
+            onClick={handleExportCSV} 
+            className="btn btn-secondary"
+            style={{ padding: '0.6rem 1.1rem', fontSize: '0.88rem' }}
+          >
+            <Download size={17} />
+            Exportar CSV ({filteredLogs.length})
+          </button>
+        </div>
       </div>
 
       {/* Tarjetas de estadísticas */}
@@ -159,108 +253,196 @@ export default function AuditDashboard() {
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', 
         gap: '1rem', 
-        marginBottom: '2rem' 
+        marginBottom: '1.25rem' 
       }}>
-        <div className="glass-card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="glass-card" style={{ padding: '1.15rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'rgba(0, 102, 204, 0.12)', color: 'var(--primary)' }}>
             <Activity size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Eventos Registrados</span>
-            <strong style={{ fontSize: '1.6rem', fontWeight: 700 }}>{stats.total}</strong>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>Total de Eventos</span>
+            <strong style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.total}</strong>
           </div>
         </div>
 
-        <div className="glass-card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="glass-card" style={{ padding: '1.15rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'rgba(52, 199, 89, 0.12)', color: 'var(--success)' }}>
             <Clock size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Eventos Hoy</span>
-            <strong style={{ fontSize: '1.6rem', fontWeight: 700 }}>{stats.today}</strong>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>Eventos Hoy</span>
+            <strong style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.today}</strong>
           </div>
         </div>
 
-        <div className="glass-card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="glass-card" style={{ padding: '1.15rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'rgba(50, 173, 230, 0.12)', color: 'var(--info)' }}>
             <FileText size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Actividad Reportes</span>
-            <strong style={{ fontSize: '1.6rem', fontWeight: 700 }}>{stats.reportEvents}</strong>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>Reportes Bitácora</span>
+            <strong style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.reports}</strong>
           </div>
         </div>
 
-        <div className="glass-card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="glass-card" style={{ padding: '1.15rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'rgba(255, 59, 48, 0.12)', color: 'var(--error)' }}>
             <AlertTriangle size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Acciones Críticas</span>
-            <strong style={{ fontSize: '1.6rem', fontWeight: 700 }}>{stats.criticalEvents}</strong>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>Alertas / Críticos</span>
+            <strong style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.critical}</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Barra de Distribución Visual de Actividades */}
+      <div className="glass-card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', fontSize: '0.85rem' }}>
+          <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <BarChart2 size={16} color="var(--primary)" />
+            Distribución de la Actividad Registrada
+          </span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Muestra de {stats.total} eventos</span>
+        </div>
+
+        {/* Barra de progreso multicolor */}
+        <div style={{ 
+          height: '10px', 
+          width: '100%', 
+          borderRadius: '999px', 
+          overflow: 'hidden', 
+          display: 'flex', 
+          background: 'var(--surface-secondary)',
+          border: '1px solid var(--surface-border)'
+        }}>
+          <div title={`Logins: ${stats.percentages.loginPct}%`} style={{ width: `${stats.percentages.loginPct}%`, background: 'var(--success)', transition: 'width 0.4s ease' }} />
+          <div title={`Reportes: ${stats.percentages.reportsPct}%`} style={{ width: `${stats.percentages.reportsPct}%`, background: 'var(--primary)', transition: 'width 0.4s ease' }} />
+          <div title={`Revisiones: ${stats.percentages.revisionsPct}%`} style={{ width: `${stats.percentages.revisionsPct}%`, background: 'var(--info)', transition: 'width 0.4s ease' }} />
+          <div title={`Alertas/Críticos: ${stats.percentages.criticalPct}%`} style={{ width: `${stats.percentages.criticalPct}%`, background: 'var(--error)', transition: 'width 0.4s ease' }} />
+        </div>
+
+        {/* Leyenda interactiva */}
+        <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', marginTop: '0.75rem', fontSize: '0.78rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)' }}></span>
+            <span>Accesos / Logins ({stats.percentages.loginPct}%)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)' }}></span>
+            <span>Reportes Pasantes ({stats.percentages.reportsPct}%)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--info)' }}></span>
+            <span>Revisiones / Descargas ({stats.percentages.revisionsPct}%)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--error)' }}></span>
+            <span>Alertas / Bajas ({stats.percentages.criticalPct}%)</span>
           </div>
         </div>
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
-      <div className="glass-panel" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="glass-panel" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
         
-        {/* Input de Búsqueda */}
-        <div style={{ flex: '1 1 260px', position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <Search size={18} style={{ position: 'absolute', left: '0.85rem', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-          <input 
-            type="text"
-            placeholder="Buscar por usuario, acción o detalle..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              paddingLeft: '2.5rem',
-              width: '100%',
-              fontSize: '0.88rem'
-            }}
-          />
-        </div>
-
-        {/* Filtro por Rol */}
-        <div style={{ minWidth: '150px' }}>
-          <select 
-            value={selectedRole} 
-            onChange={(e) => setSelectedRole(e.target.value)}
-            style={{ width: '100%', fontSize: '0.88rem' }}
-          >
-            <option value="todos">Todos los Roles</option>
-            <option value="admin">Administrador</option>
-            <option value="encargado">Encargado</option>
-            <option value="pasante">Pasante</option>
-          </select>
-        </div>
-
-        {/* Filtro por Módulo */}
-        <div style={{ minWidth: '160px' }}>
-          <select 
-            value={selectedModule} 
-            onChange={(e) => setSelectedModule(e.target.value)}
-            style={{ width: '100%', fontSize: '0.88rem' }}
-          >
-            <option value="todos">Todos los Módulos</option>
-            {Object.entries(AUDIT_MODULES).map(([key, label]) => (
-              <option key={key} value={label}>{label}</option>
+        {/* Fila 1: Presets rápidos de tiempo */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '0.3rem', fontWeight: 500 }}>
+              Período:
+            </span>
+            {[
+              { id: 'todos', label: 'Todo el historial' },
+              { id: 'hoy', label: 'Hoy' },
+              { id: 'semana', label: 'Últimos 7 días' },
+              { id: 'mes', label: 'Este mes' }
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setTimePreset(p.id)}
+                className={`btn ${timePreset === p.id ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}
+              >
+                {p.label}
+              </button>
             ))}
-          </select>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={handleResetFilters}
+              className="btn btn-secondary"
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', color: 'var(--error)' }}
+              title="Restablecer todos los filtros"
+            >
+              <RotateCcw size={14} />
+              Limpiar Filtros
+            </button>
+          )}
         </div>
 
-        {/* Filtro por Acción */}
-        <div style={{ minWidth: '170px' }}>
-          <select 
-            value={selectedAction} 
-            onChange={(e) => setSelectedAction(e.target.value)}
-            style={{ width: '100%', fontSize: '0.88rem' }}
-          >
-            <option value="todos">Todas las Acciones</option>
-            {Object.entries(AUDIT_ACTIONS).map(([key, val]) => (
-              <option key={key} value={val}>{val.replace(/_/g, ' ')}</option>
-            ))}
-          </select>
+        {/* Fila 2: Búsqueda y desplegables */}
+        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          
+          {/* Input de Búsqueda */}
+          <div style={{ flex: '1 1 240px', position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Search size={17} style={{ position: 'absolute', left: '0.85rem', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+            <input 
+              type="text"
+              placeholder="Buscar por usuario, acción o detalle..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                paddingLeft: '2.4rem',
+                width: '100%',
+                fontSize: '0.85rem'
+              }}
+            />
+          </div>
+
+          {/* Filtro por Rol */}
+          <div style={{ minWidth: '140px' }}>
+            <select 
+              value={selectedRole} 
+              onChange={(e) => setSelectedRole(e.target.value)}
+              style={{ width: '100%', fontSize: '0.85rem' }}
+            >
+              <option value="todos">Todos los Roles</option>
+              <option value="admin">Administrador</option>
+              <option value="encargado">Encargado</option>
+              <option value="pasante">Pasante</option>
+            </select>
+          </div>
+
+          {/* Filtro por Módulo */}
+          <div style={{ minWidth: '150px' }}>
+            <select 
+              value={selectedModule} 
+              onChange={(e) => setSelectedModule(e.target.value)}
+              style={{ width: '100%', fontSize: '0.85rem' }}
+            >
+              <option value="todos">Todos los Módulos</option>
+              {Object.entries(AUDIT_MODULES).map(([key, label]) => (
+                <option key={key} value={label}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro por Acción */}
+          <div style={{ minWidth: '160px' }}>
+            <select 
+              value={selectedAction} 
+              onChange={(e) => setSelectedAction(e.target.value)}
+              style={{ width: '100%', fontSize: '0.85rem' }}
+            >
+              <option value="todos">Todas las Acciones</option>
+              {Object.entries(AUDIT_ACTIONS).map(([key, val]) => (
+                <option key={key} value={val}>{val.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -275,11 +457,16 @@ export default function AuditDashboard() {
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
             <Terminal size={40} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
             <h3 style={{ margin: 0, fontSize: '1.1rem' }}>No hay registros que coincidan</h3>
-            <p style={{ fontSize: '0.88rem', margin: '0.5rem 0 0' }}>Prueba ajustando los filtros de búsqueda o registra una nueva acción.</p>
+            <p style={{ fontSize: '0.88rem', margin: '0.5rem 0 0' }}>Prueba ajustando los filtros de búsqueda o restableciéndolos.</p>
+            {hasActiveFilters && (
+              <button onClick={handleResetFilters} className="btn btn-secondary" style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
+                Restablecer Filtros
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
               <thead>
                 <tr style={{ background: 'var(--surface-secondary)', borderBottom: '1px solid var(--surface-border)' }}>
                   <th style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>Fecha / Hora</th>
@@ -288,7 +475,7 @@ export default function AuditDashboard() {
                   <th style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>Módulo</th>
                   <th style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>Acción</th>
                   <th style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>Detalle de la Actividad</th>
-                  <th style={{ padding: '0.85rem 1rem', fontWeight: 600, textAlign: 'center' }}>Ver</th>
+                  <th style={{ padding: '0.85rem 1rem', fontWeight: 600, textAlign: 'center' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -324,7 +511,7 @@ export default function AuditDashboard() {
                       {getActionBadge(log.action)}
                     </td>
 
-                    <td style={{ padding: '0.85rem 1rem', maxWidth: '360px' }}>
+                    <td style={{ padding: '0.85rem 1rem', maxWidth: '340px' }}>
                       <div style={{ 
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
@@ -334,9 +521,19 @@ export default function AuditDashboard() {
                         {log.details || 'Sin descripción adicional'}
                       </div>
                       {log.targetId && (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                          Ref ID: {log.targetId.substring(0, 10)}...
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                            Ref: {log.targetId.substring(0, 10)}...
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyId(log.targetId)}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 2px' }}
+                            title="Copiar ID de referencia"
+                          >
+                            {copiedId === log.targetId ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
+                          </button>
+                        </div>
                       )}
                     </td>
 
@@ -395,7 +592,7 @@ export default function AuditDashboard() {
                 <span>{selectedLogDetail.dateString} - {selectedLogDetail.timeString}</span>
               </div>
               <div>
-                <strong style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Usuario</strong>
+                <strong style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Usuario Responsable</strong>
                 <span>{selectedLogDetail.userName} ({selectedLogDetail.userRole})</span>
               </div>
               <div>
@@ -403,7 +600,7 @@ export default function AuditDashboard() {
                 <span>{selectedLogDetail.module}</span>
               </div>
               <div>
-                <strong style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Acción</strong>
+                <strong style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Acción Ejecutada</strong>
                 <span>{selectedLogDetail.action}</span>
               </div>
             </div>
@@ -418,9 +615,19 @@ export default function AuditDashboard() {
             {selectedLogDetail.targetId && (
               <div style={{ marginBottom: '1.2rem' }}>
                 <strong style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', marginBottom: '0.3rem' }}>ID del Recurso Vinculado</strong>
-                <code style={{ padding: '0.3rem 0.6rem', background: 'var(--surface-secondary)', borderRadius: '4px', border: '1px solid var(--surface-border)', display: 'inline-block', fontSize: '0.82rem' }}>
-                  {selectedLogDetail.targetId}
-                </code>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <code style={{ padding: '0.3rem 0.6rem', background: 'var(--surface-secondary)', borderRadius: '4px', border: '1px solid var(--surface-border)', display: 'inline-block', fontSize: '0.82rem' }}>
+                    {selectedLogDetail.targetId}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyId(selectedLogDetail.targetId)}
+                    className="btn btn-secondary"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  >
+                    {copiedId === selectedLogDetail.targetId ? 'Copiado' : 'Copiar'}
+                  </button>
+                </div>
               </div>
             )}
 

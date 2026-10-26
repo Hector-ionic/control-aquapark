@@ -116,6 +116,14 @@ export default function SupervisorDashboard() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Archivo CSV generado exitosamente");
+    logAuditEvent({
+      action: AUDIT_ACTIONS.EXPORTAR_CSV,
+      module: AUDIT_MODULES.SUPERVISION,
+      details: `Exportación de ${filteredReports.length} reportes a formato CSV.`,
+      userName: currentUser?.displayName || 'Encargado',
+      userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado',
+      metadata: { totalExportados: filteredReports.length, turnoFiltro: filterTurno, mesFiltro: filterMonth || 'Todos' }
+    });
   };
 
   const handleDownloadFile = async (e, url, fileName) => {
@@ -163,6 +171,14 @@ export default function SupervisorDashboard() {
       });
     } else {
       setError('Credenciales incorrectas. Verifica tu usuario y contraseña.');
+      logAuditEvent({
+        action: AUDIT_ACTIONS.LOGIN_FALLIDO,
+        module: AUDIT_MODULES.AUTH,
+        details: `Intento de acceso fallido para el usuario "${userKey || 'Desconocido'}".`,
+        userName: userKey || 'Desconocido',
+        userRole: 'desconocido',
+        metadata: { intentoUsuario: userKey }
+      });
     }
   };
 
@@ -305,6 +321,14 @@ export default function SupervisorDashboard() {
     
     setIsDeletingOld(false);
     toast.success(`Limpieza completada: ${deletedCount} reportes antiguos depurados.`);
+    logAuditEvent({
+      action: AUDIT_ACTIONS.ELIMINAR_REPORTE,
+      module: AUDIT_MODULES.SUPERVISION,
+      details: `Depuración masiva de fin de mes: ${deletedCount} reportes antiguos eliminados.`,
+      userName: currentUser?.displayName || 'Administrador',
+      userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado',
+      metadata: { reportesEliminados: deletedCount }
+    });
   };
 
   const exportPDF = () => {
@@ -325,6 +349,14 @@ export default function SupervisorDashboard() {
       element.style.display = 'none';
       setIsGeneratingPDF(false);
       toast.success("Comprobante en PDF descargado");
+      logAuditEvent({
+        action: AUDIT_ACTIONS.DESCARGAR_PDF,
+        module: AUDIT_MODULES.SUPERVISION,
+        details: `Comprobante PDF generado para el reporte de ${selectedReport.student || 'Estudiante'}.`,
+        targetId: selectedReport.id,
+        userName: currentUser?.displayName || 'Encargado',
+        userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado'
+      });
     });
   };
 
