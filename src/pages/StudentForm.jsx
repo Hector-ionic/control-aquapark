@@ -11,6 +11,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 import { useAuth } from '../context/AuthContext';
 import { getSupervisors } from '../services/supervisorService';
+import { sendReportEmail } from '../services/mailService';
 
 // Función para comprimir imágenes de alta resolución sin degradar la legibilidad
 const compressImage = (file) => {
@@ -336,6 +337,9 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
           totalActividades: processedActivities.length
         }
       });
+
+      // Despachar notificación automática por correo (Gmail microservicio)
+      sendReportEmail(reportData);
 
       setSubmittedReport({
         id: docRef?.id,
