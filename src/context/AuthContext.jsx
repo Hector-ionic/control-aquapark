@@ -1,13 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  createUserWithEmailAndPassword,
-  updateProfile
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase';
 
 const AuthContext = createContext(null);
 
@@ -19,103 +10,129 @@ export const useAuth = () => {
   return context;
 };
 
-// Mapeo seguro de roles oficiales requeridos: 'admin' | 'encargado' | 'pasante'
-const normalizeRole = (roleStr, email = '') => {
-  if (!roleStr && email) {
-    const cleanEmail = email.toLowerCase();
-    if (cleanEmail.includes('admin')) return 'admin';
-    if (cleanEmail.includes('encargado') || cleanEmail.includes('supervisor')) return 'encargado';
-    return 'pasante';
+// Cuentas predeterminadas para pruebas rápidas en Frontend
+export const PREDEFINED_USERS = [
+  {
+    id: 'usr-admin-01',
+    name: 'Administrador General',
+    email: 'admin@aquapark.com',
+    password: 'admin',
+    role: 'admin',
+    area: 'Dirección General'
+  },
+  {
+    id: 'usr-encargado-01',
+    name: 'Hector Calle',
+    email: 'hector.calle@aquapark.com',
+    password: '123',
+    role: 'encargado',
+    area: 'Supervisión de Pasantes'
+  },
+  {
+    id: 'usr-encargado-02',
+    name: 'Lizeth de la Cruz',
+    email: 'lizeth.delacruz@aquapark.com',
+    password: '123',
+    role: 'encargado',
+    area: 'Recursos Humanos'
+  },
+  {
+    id: 'usr-pasante-01',
+    name: 'Juan Pérez (Pasante)',
+    email: 'juan.perez@aquapark.com',
+    password: '123',
+    role: 'pasante',
+    area: 'Sistemas e Informática'
   }
+];
 
-  const normalized = (roleStr || '').toLowerCase().trim();
-  if (normalized === 'admin' || normalized === 'administrador') return 'admin';
-  if (normalized === 'encargado' || normalized === 'supervisor') return 'encargado';
-  return 'pasante';
-};
+const STORAGE_KEY = 'aquapark_auth_session';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null); // 'admin' | 'encargado' | 'pasante'
   const [loading, setLoading] = useState(true);
 
-  // Escuchar cambios de sesión en Firebase Auth
+  // 1. Cargar sesión persistida en localStorage al montar la app (resistente a F5)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          // Intentar obtener el rol y datos desde la colección 'users' en Firestore
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          let userRole = 'pasante';
-
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            userRole = normalizeRole(data.role, firebaseUser.email);
-          } else {
-            // Si el usuario aún no tiene registro en Firestore, inferir rol y crearlo
-            userRole = normalizeRole(null, firebaseUser.email);
-            await setDoc(userDocRef, {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              displayName: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-              role: userRole,
-              createdAt: serverTimestamp()
-            }, { merge: true });
-          }
-
-          setUser(firebaseUser);
-          setRole(userRole);
-        } catch (error) {
-          console.error("Error al consultar el rol de usuario:", error);
-          // Fallback seguro en caso de error de lectura
-          const fallbackRole = normalizeRole(null, firebaseUser.email);
-          setUser(firebaseUser);
-          setRole(fallbackRole);
+    try {
+      const savedSession = localStorage.getItem(STORAGE_KEY);
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        if (parsed && parsed.role) {
+          setUser(parsed);
+          setRole(parsed.role);
         }
-      } else {
-        setUser(null);
-        setRole(null);
       }
+    } catch (err) {
+      console.error("Error al leer sesión de localStorage:", err);
+      localStorage.removeItem(STORAGE_KEY);
+    } finally {
       setLoading(false);
-    });
-
-    return () => unsubscribe();
+    }
   }, []);
 
-  // Iniciar sesión con email y contraseña
-  const login = async (email, password) => {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential.user;
-  };
+  // 2. Iniciar sesión en Frontend y persistir en localStorage
+  const login = ({ email, password, role: selectedRole, name }) => {
+    // Buscar si coincide con alguna cuenta predeterminada
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const existing = PREDEFINED_USERS.find(
+      u => u.email.toLowerCase() === cleanEmail && u.password === password
+    );
 
-  // Registrar un nuevo usuario (opcional para administración)
-  const register = async (email, password, desiredRole = 'pasante', displayName = '') => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const newUser = userCredential.user;
+    let sessionData;
 
-    if (displayName) {
-      await updateProfile(newUser, { displayName });
+    if (existing) {
+      sessionData = {
+        id: existing.id,
+        name: existing.name,
+        email: existing.email,
+        role: existing.role, // 'admin' | 'encargado' | 'pasante'
+        area: existing.area,
+        loginAt: new Date().toISOString()
+      };
+    } else {
+      // Si el usuario introduce sus propios datos personalizados
+      const assignedRole = selectedRole || (cleanEmail.includes('admin') ? 'admin' : cleanEmail.includes('encargado') ? 'encargado' : 'pasante');
+      sessionData = {
+        id: `usr-${Date.now()}`,
+        name: name || cleanEmail.split('@')[0] || 'Usuario AquaPark',
+        email: cleanEmail || 'usuario@aquapark.com',
+        role: assignedRole,
+        area: assignedRole === 'admin' ? 'Administración' : assignedRole === 'encargado' ? 'Supervisión' : 'Pasante',
+        loginAt: new Date().toISOString()
+      };
     }
 
-    const officialRole = normalizeRole(desiredRole, email);
+    // Guardar en estado y en localStorage
+    setUser(sessionData);
+    setRole(sessionData.role);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
 
-    // Guardar en Firestore con el rol oficial
-    await setDoc(doc(db, 'users', newUser.uid), {
-      uid: newUser.uid,
-      email: newUser.email,
-      displayName: displayName || email.split('@')[0],
-      role: officialRole,
-      createdAt: serverTimestamp()
-    });
-
-    return newUser;
+    return sessionData;
   };
 
-  // Cerrar sesión
-  const logout = async () => {
-    await signOut(auth);
+  // 3. Inicio de sesión rápido con un clic (perfiles demo)
+  const quickLogin = (predefinedUser) => {
+    const sessionData = {
+      id: predefinedUser.id,
+      name: predefinedUser.name,
+      email: predefinedUser.email,
+      role: predefinedUser.role,
+      area: predefinedUser.area,
+      loginAt: new Date().toISOString()
+    };
+
+    setUser(sessionData);
+    setRole(sessionData.role);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+
+    return sessionData;
+  };
+
+  // 4. Cerrar sesión y limpiar localStorage
+  const logout = () => {
+    localStorage.removeItem(STORAGE_KEY);
     setUser(null);
     setRole(null);
   };
@@ -125,8 +142,9 @@ export const AuthProvider = ({ children }) => {
     role, // 'admin' | 'encargado' | 'pasante'
     loading,
     login,
+    quickLogin,
     logout,
-    register
+    predefinedUsers: PREDEFINED_USERS
   };
 
   return (
