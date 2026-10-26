@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import StudentForm from './StudentForm';
+import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 
 const USERS = {
   'hector calle': { role: 'Encargado', password: 'AquaPark#01', displayName: 'Hector Calle' },
@@ -152,6 +153,14 @@ export default function SupervisorDashboard() {
       setCurrentUser({ id: userKey, ...userObj });
       setError('');
       toast.success(`Bienvenido(a), ${userObj.displayName}`);
+      logAuditEvent({
+        action: AUDIT_ACTIONS.LOGIN_EXITOSO,
+        module: AUDIT_MODULES.AUTH,
+        details: `Inicio de sesión exitoso como ${userObj.role} (${userObj.displayName}).`,
+        userName: userObj.displayName,
+        userRole: userObj.role === 'Administrador' ? 'admin' : 'encargado',
+        userId: userKey
+      });
     } else {
       setError('Credenciales incorrectas. Verifica tu usuario y contraseña.');
     }
@@ -210,6 +219,14 @@ export default function SupervisorDashboard() {
           setSelectedReport(null);
         }
         toast.success("Reporte archivado");
+        logAuditEvent({
+          action: AUDIT_ACTIONS.ARCHIVAR_REPORTE,
+          module: AUDIT_MODULES.SUPERVISION,
+          details: `Reporte de ${selectedReport.student} archivado/enviado a papelera.`,
+          targetId: selectedReport.id,
+          userName: currentUser?.displayName || 'Encargado',
+          userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado'
+        });
       } catch (err) {
         console.error("Error al archivar:", err);
         toast.error("Hubo un error al archivar el reporte.");
@@ -226,6 +243,14 @@ export default function SupervisorDashboard() {
         setSelectedReport({ ...selectedReport, isDeleted: false });
       }
       toast.success("Reporte restaurado a la bandeja principal");
+      logAuditEvent({
+        action: AUDIT_ACTIONS.RESTAURAR_REPORTE,
+        module: AUDIT_MODULES.SUPERVISION,
+        details: `Reporte de ${selectedReport.student} restaurado a la bandeja activa.`,
+        targetId: selectedReport.id,
+        userName: currentUser?.displayName || 'Encargado',
+        userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado'
+      });
     } catch (err) {
       console.error("Error restaurando:", err);
       toast.error("Hubo un error al restaurar el reporte.");
@@ -241,6 +266,14 @@ export default function SupervisorDashboard() {
         setSelectedReport({ ...selectedReport, status: newStatus });
       }
       toast.success(`Estado actualizado a: ${newStatus}`);
+      logAuditEvent({
+        action: AUDIT_ACTIONS.ACTUALIZAR_ESTADO,
+        module: AUDIT_MODULES.SUPERVISION,
+        details: `Estado del reporte de ${selectedReport.student} cambiado a "${newStatus}".`,
+        targetId: reportId,
+        userName: currentUser?.displayName || 'Encargado',
+        userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado'
+      });
     } catch (err) {
       console.error("Error al actualizar estado:", err);
       toast.error("Hubo un error al actualizar el estado.");

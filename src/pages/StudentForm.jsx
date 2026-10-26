@@ -8,6 +8,7 @@ import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 
 // Función para comprimir imágenes de alta resolución sin degradar la legibilidad
 const compressImage = (file) => {
@@ -271,7 +272,21 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         timeEnd: submitTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
       };
 
-      await addDoc(collection(db, "reports"), reportData);
+      const docRef = await addDoc(collection(db, "reports"), reportData);
+      logAuditEvent({
+        action: AUDIT_ACTIONS.CREAR_REPORTE,
+        module: AUDIT_MODULES.REPORTES,
+        details: `Bitácora enviada por ${formData.name} (${formData.turno}) asignada a ${formData.supervisor}.`,
+        targetId: docRef?.id,
+        userName: formData.name,
+        userRole: isEncargadoMode ? 'encargado' : 'pasante',
+        metadata: {
+          turno: formData.turno,
+          carrera: formData.career,
+          institucion: formData.institution,
+          totalActividades: processedActivities.length
+        }
+      });
 
       const wantsPDF = window.confirm("¡Reporte enviado con éxito al encargado!\n\n¿Deseas descargar tu comprobante en PDF antes de limpiar el formulario?");
       

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { ShieldCheck, PlusCircle, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, PlusCircle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
 import StudentForm from './pages/StudentForm';
 import SupervisorDashboard from './pages/SupervisorDashboard';
+import AuditDashboard from './pages/AuditDashboard';
 
 function NavigationHeader({ theme, setTheme }) {
   const location = useLocation();
   const isSupervisor = location.pathname.startsWith('/supervisor');
+  const isAudit = location.pathname.startsWith('/auditoria');
+  const isHome = location.pathname === '/';
 
   return (
     <header className="app-header animate-fade-in hide-on-pdf">
@@ -53,7 +56,7 @@ function NavigationHeader({ theme, setTheme }) {
         
         <Link 
           to="/" 
-          className={`btn ${!isSupervisor ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn ${isHome ? 'btn-primary' : 'btn-secondary'}`}
           style={{ padding: '0.55rem 1rem', fontSize: '0.85rem' }}
         >
           <PlusCircle size={16} />
@@ -66,6 +69,14 @@ function NavigationHeader({ theme, setTheme }) {
         >
           <ShieldCheck size={16} />
           Acceso Encargado
+        </Link>
+        <Link 
+          to="/auditoria" 
+          className={`btn ${isAudit ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '0.55rem 1rem', fontSize: '0.85rem' }}
+        >
+          <ShieldAlert size={16} />
+          Auditoría
         </Link>
       </nav>
     </header>
@@ -106,6 +117,7 @@ function App() {
           <Routes>
             <Route path="/" element={<StudentForm />} />
             <Route path="/supervisor" element={<SupervisorDashboard />} />
+            <Route path="/auditoria" element={<AuditDashboard />} />
           </Routes>
         </main>
 
