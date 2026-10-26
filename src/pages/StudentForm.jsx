@@ -8,6 +8,7 @@ import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
 
 // Función para comprimir imágenes de alta resolución sin degradar la legibilidad
 const compressImage = (file) => {
@@ -50,6 +51,7 @@ const compressImage = (file) => {
 };
 
 export default function StudentForm({ isEncargadoMode = false, encargadoName = '', onCancel = null }) {
+  const { user: authUser } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime] = useState(new Date());
   
@@ -74,6 +76,16 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Si hay un usuario logueado, autocompletar su nombre en el formulario
+  useEffect(() => {
+    if (authUser && !formData.name && !isEncargadoMode) {
+      setFormData(prev => ({
+        ...prev,
+        name: authUser.name || prev.name
+      }));
+    }
+  }, [authUser, isEncargadoMode]);
 
   const handleAddActivity = () => {
     setActivities([
