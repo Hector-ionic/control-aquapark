@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   ShieldAlert, Activity, Search, Filter, Download, User, Calendar, 
   Clock, CheckCircle, AlertTriangle, FileText, Lock, RefreshCw,
-  Eye, ShieldCheck, Terminal, RotateCcw, Copy, Check, BarChart2
+  Eye, ShieldCheck, Terminal, RotateCcw, Copy, Check, BarChart2, FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { 
   subscribeToAuditLogs, 
-  exportAuditLogsCSV, 
+  exportAuditLogsCSV,
+  exportAuditLogsExcel, 
   AUDIT_ACTIONS, 
   AUDIT_MODULES 
 } from '../services/auditService';
@@ -147,6 +148,15 @@ export default function AuditDashboard() {
       return true;
     });
   }, [logs, searchTerm, selectedRole, selectedAction, selectedModule, timePreset]);
+
+  const handleExportExcel = useCallback(() => {
+    if (filteredLogs.length === 0) {
+      toast.error('No hay registros filtrados para exportar');
+      return;
+    }
+    exportAuditLogsExcel(filteredLogs);
+    toast.success('Bitácora descargada en formato Excel (.xls)');
+  }, [filteredLogs]);
 
   const handleExportCSV = useCallback(() => {
     if (filteredLogs.length === 0) {
