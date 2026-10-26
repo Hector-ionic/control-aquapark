@@ -93,7 +93,8 @@ export default function Login() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-            {predefinedUsers.slice(0, 3).map((item) => {
+            {['admin', 'encargado', 'pasante'].map((roleKey) => {
+              const item = predefinedUsers.find(u => u.role === roleKey) || predefinedUsers[0];
               const roleColors = {
                 admin: { bg: 'rgba(239, 68, 68, 0.1)', text: 'var(--error)', border: 'rgba(239, 68, 68, 0.3)' },
                 encargado: { bg: 'var(--primary-light)', text: 'var(--primary)', border: 'var(--accent-glow)' },
@@ -143,7 +144,7 @@ export default function Login() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           
           <div className="input-group">
-            <label><ShieldCheck size={14} color="var(--primary)" /> Rol a Simular *</label>
+            <label><ShieldCheck size={14} color="var(--primary)" /> Tipo de Cuenta / Rol *</label>
             <select
               value={formData.role}
               onChange={(e) => {

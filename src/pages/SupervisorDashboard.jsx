@@ -11,6 +11,7 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import StudentForm from './StudentForm';
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
+import { useAuth } from '../context/AuthContext';
 
 const USERS = {
   'hector calle': { role: 'Encargado', password: 'AquaPark#01', displayName: 'Hector Calle' },
@@ -51,7 +52,20 @@ class ReportErrorBoundary extends React.Component {
 }
 
 export default function SupervisorDashboard() {
+  const { user: authUser, role: authRole } = useAuth();
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Sincronizar automáticamente la sesión global de AuthContext con el Dashboard
+  useEffect(() => {
+    if (authUser) {
+      const isAdm = authRole === 'admin';
+      setCurrentUser({
+        id: isAdm ? 'administrador' : (authUser.name?.toLowerCase().trim() || 'encargado'),
+        role: isAdm ? 'Administrador' : 'Encargado',
+        displayName: authUser.name || (isAdm ? 'Administrador General' : 'Encargado')
+      });
+    }
+  }, [authUser, authRole]);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [view, setView] = useState('inbox');
