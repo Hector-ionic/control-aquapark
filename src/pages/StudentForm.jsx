@@ -576,9 +576,9 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               <label><Clock size={14} color="var(--primary)" /> Turno Asignado *</label>
               <select required value={formData.turno} onChange={e => setFormData({...formData, turno: e.target.value})}>
                 <option value="" disabled>Seleccione turno...</option>
-                <option value="Mañana">Mañana (08:00 - 13:00)</option>
-                <option value="Tarde">Tarde (14:00 - 19:00)</option>
-                <option value="Jornada Completa">Jornada Completa (Doble Turno)</option>
+                <option value="Mañana">Mañana</option>
+                <option value="Tarde">Tarde</option>
+                <option value="Jornada Completa">Jornada Completa</option>
               </select>
             </div>
           </div>
