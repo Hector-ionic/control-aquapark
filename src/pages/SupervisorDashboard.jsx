@@ -13,9 +13,9 @@ import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapsho
 import StudentForm from './StudentForm';
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 import { useAuth } from '../context/AuthContext';
-import { 
-  getSupervisors, deleteSupervisor, restoreSupervisor, 
-  toggleSupervisorActive, addSupervisor 
+import {
+  getSupervisors, deleteSupervisor, restoreSupervisor,
+  toggleSupervisorActive, addSupervisor
 } from '../services/supervisorService';
 
 const USERS = {
@@ -375,6 +375,9 @@ export default function SupervisorDashboard() {
     e.stopPropagation();
     if (window.confirm("¿Deseas archivar este reporte? Podrás consultarlo en la sección de Archivados.")) {
       try {
+        const targetReport = reports.find(r => r.id === reportId) || selectedReport;
+        const studentName = targetReport?.student || 'Estudiante';
+
         await updateDoc(doc(db, "reports", reportId), { isDeleted: true });
         setReports(reports.map(r => r.id === reportId ? { ...r, isDeleted: true } : r));
         if (selectedReport && selectedReport.id === reportId) {
@@ -384,8 +387,8 @@ export default function SupervisorDashboard() {
         logAuditEvent({
           action: AUDIT_ACTIONS.ARCHIVAR_REPORTE,
           module: AUDIT_MODULES.SUPERVISION,
-          details: `Reporte de ${selectedReport.student} archivado/enviado a papelera.`,
-          targetId: selectedReport.id,
+          details: `Reporte de ${studentName} archivado/enviado a papelera.`,
+          targetId: reportId,
           userName: currentUser?.displayName || 'Encargado',
           userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado'
         });
@@ -399,6 +402,9 @@ export default function SupervisorDashboard() {
   const handleRestoreReport = async (reportId, e) => {
     e.stopPropagation();
     try {
+      const targetReport = reports.find(r => r.id === reportId) || selectedReport;
+      const studentName = targetReport?.student || 'Estudiante';
+
       await updateDoc(doc(db, "reports", reportId), { isDeleted: false });
       setReports(reports.map(r => r.id === reportId ? { ...r, isDeleted: false } : r));
       if (selectedReport && selectedReport.id === reportId) {
@@ -408,8 +414,8 @@ export default function SupervisorDashboard() {
       logAuditEvent({
         action: AUDIT_ACTIONS.RESTAURAR_REPORTE,
         module: AUDIT_MODULES.SUPERVISION,
-        details: `Reporte de ${selectedReport.student} restaurado a la bandeja activa.`,
-        targetId: selectedReport.id,
+        details: `Reporte de ${studentName} restaurado a la bandeja activa.`,
+        targetId: reportId,
         userName: currentUser?.displayName || 'Encargado',
         userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado'
       });
@@ -422,6 +428,9 @@ export default function SupervisorDashboard() {
   const handleUpdateStatus = async (reportId, newStatus, e) => {
     if (e) e.stopPropagation();
     try {
+      const targetReport = reports.find(r => r.id === reportId) || selectedReport;
+      const studentName = targetReport?.student || 'Estudiante';
+
       await updateDoc(doc(db, "reports", reportId), { status: newStatus });
       setReports(reports.map(r => r.id === reportId ? { ...r, status: newStatus } : r));
       if (selectedReport && selectedReport.id === reportId) {
@@ -431,7 +440,7 @@ export default function SupervisorDashboard() {
       logAuditEvent({
         action: AUDIT_ACTIONS.ACTUALIZAR_ESTADO,
         module: AUDIT_MODULES.SUPERVISION,
-        details: `Estado del reporte de ${selectedReport.student} cambiado a "${newStatus}".`,
+        details: `Estado del reporte de ${studentName} cambiado a "${newStatus}".`,
         targetId: reportId,
         userName: currentUser?.displayName || 'Encargado',
         userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado'
