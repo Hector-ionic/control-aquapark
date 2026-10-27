@@ -450,23 +450,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
       </div>
 
       {/* BANNER PRINCIPAL DE LA BITÁCORA */}
-      <div 
-        className="glass-panel" 
-        id="report-header" 
-        style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          flexWrap: 'wrap', 
-          gap: '1.25rem',
-          backgroundImage: "linear-gradient(135deg, rgba(2, 132, 199, 0.88) 0%, rgba(15, 23, 42, 0.86) 100%), url('/aquapark-bg.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          color: '#ffffff',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          boxShadow: '0 10px 30px -10px rgba(2, 132, 199, 0.35)'
-        }}
-      >
+      <div className="glass-panel" id="report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
             <span className="badge badge-primary">
@@ -477,10 +461,10 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               {activities.length} {activities.length === 1 ? 'Actividad' : 'Actividades'}
             </span>
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#ffffff' }}>
+          <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
             {isEncargadoMode ? 'Informe Directo a RR.HH / Administración' : 'Registro Diario de Actividades'}
           </h2>
-          <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.92rem', color: '#e0f2fe' }}>
+          <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
             {isEncargadoMode 
               ? 'Emite tu informe ejecutivo de encargado para su revisión administrativa.' 
               : 'Registra tus avances, tareas ejecutadas y evidencias antes de concluir tu jornada.'}

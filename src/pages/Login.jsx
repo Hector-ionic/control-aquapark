@@ -64,10 +64,7 @@ export default function Login() {
       borderRadius: 'var(--radius-lg)',
       overflow: 'hidden',
       marginTop: '1rem',
-      backgroundImage: `linear-gradient(145deg, rgba(11, 17, 32, 0.70) 0%, rgba(15, 23, 42, 0.88) 100%), url('/aquapark-bg.jpg')`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
+      background: 'transparent',
       boxShadow: 'var(--shadow-xl)',
       border: '1px solid rgba(255, 255, 255, 0.12)'
     }}>

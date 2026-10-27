@@ -11,8 +11,7 @@
   
   --bg-color: #f8fafc;
   --bg-subtle: #f1f5f9;
-  --bg-overlay: linear-gradient(rgba(248, 250, 252, 0.90), rgba(241, 245, 249, 0.94));
-  --surface: rgba(255, 255, 255, 0.90);
+  --surface: rgba(255, 255, 255, 0.85);
   --surface-secondary: rgba(248, 250, 252, 0.82);
   --surface-hover: #f1f5f9;
   --surface-border: #e2e8f0;
@@ -62,8 +61,7 @@
   
   --bg-color: #0b1120;
   --bg-subtle: #0f172a;
-  --bg-overlay: linear-gradient(rgba(11, 17, 32, 0.88), rgba(15, 23, 42, 0.94));
-  --surface: rgba(17, 24, 39, 0.88);
+  --surface: rgba(15, 23, 42, 0.85);
   --surface-secondary: rgba(30, 41, 59, 0.80);
   --surface-hover: #243247;
   --surface-border: #1e293b;
@@ -104,7 +102,6 @@
     
     --bg-color: #0b1120;
     --bg-subtle: #0f172a;
-    --bg-overlay: linear-gradient(rgba(11, 17, 32, 0.88), rgba(15, 23, 42, 0.94));
     --surface: rgba(17, 24, 39, 0.88);
     --surface-secondary: rgba(30, 41, 59, 0.80);
     --surface-hover: #243247;
@@ -150,9 +147,10 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-image: var(--bg-overlay, radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 45%)), url('/aquapark-bg.jpg');
+  background-image: url('/aquapark-bg.jpg');
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
   background-attachment: fixed;
 }
 
