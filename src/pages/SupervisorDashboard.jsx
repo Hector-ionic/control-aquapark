@@ -860,7 +860,22 @@ export default function SupervisorDashboard() {
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
       
       {/* HEADER DE BIENVENIDA */}
-      <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
+      <div 
+        className="glass-panel" 
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          flexWrap: 'wrap', 
+          gap: '1.25rem',
+          backgroundImage: "linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(2, 132, 199, 0.82) 100%), url('/aquapark-bg.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          color: '#ffffff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 10px 30px -10px rgba(2, 132, 199, 0.3)'
+        }}
+      >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
             <span className="badge badge-primary">
@@ -868,7 +883,7 @@ export default function SupervisorDashboard() {
             </span>
             <span className="badge badge-neutral">Sesión Activa</span>
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#ffffff' }}>
             Panel de {currentUser.displayName}
           </h2>
           <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>

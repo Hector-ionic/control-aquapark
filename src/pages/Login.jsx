@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   ShieldCheck, User, Lock, Mail, ArrowRight, 
-  Sparkles, ShieldAlert, GraduationCap, Briefcase, Eye, EyeOff
+  Sparkles, ShieldAlert, GraduationCap, Briefcase, Eye, EyeOff, Waves
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -53,36 +53,74 @@ export default function Login() {
     }
   };
 
-
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', padding: '1rem' }}>
+    <div style={{
+      position: 'relative',
+      minHeight: 'calc(100vh - 140px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2.5rem 1rem',
+      borderRadius: 'var(--radius-lg)',
+      overflow: 'hidden',
+      marginTop: '1rem',
+      backgroundImage: `linear-gradient(145deg, rgba(11, 17, 32, 0.70) 0%, rgba(15, 23, 42, 0.88) 100%), url('/aquapark-bg.jpg')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      boxShadow: 'var(--shadow-xl)',
+      border: '1px solid rgba(255, 255, 255, 0.12)'
+    }}>
       
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '2.5rem' }}>
+      {/* TARJETA GLASSMORPHISM DE LOGIN */}
+      <div 
+        className="animate-fade-in" 
+        style={{ 
+          width: '100%', 
+          maxWidth: '460px', 
+          padding: '2.5rem',
+          background: 'rgba(15, 23, 42, 0.78)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.75), 0 0 35px rgba(56, 189, 248, 0.15)',
+          position: 'relative',
+          zIndex: 2
+        }}
+      >
         
         {/* LOGO Y ENCABEZADO */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
           <div style={{ 
-            width: '60px', height: '60px', borderRadius: 'var(--radius-md)', 
-            background: 'var(--primary-light)', color: 'var(--primary)', 
+            width: '64px', height: '64px', borderRadius: '50%', 
+            background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.25) 0%, rgba(56, 189, 248, 0.15) 100%)', 
+            color: '#38bdf8', 
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 1rem', border: '1px solid var(--accent-glow)'
+            margin: '0 auto 1rem', border: '1px solid rgba(56, 189, 248, 0.35)',
+            boxShadow: '0 0 20px rgba(56, 189, 248, 0.25)'
           }}>
-            <ShieldCheck size={32} />
+            <ShieldCheck size={34} />
           </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.35rem' }}>
+
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(2, 132, 199, 0.2)', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '0.2rem 0.65rem', borderRadius: '999px', marginBottom: '0.6rem' }}>
+            <Waves size={13} color="#38bdf8" />
+            <span style={{ fontSize: '0.72rem', color: '#bae6fd', fontWeight: 600, letterSpacing: '0.04em' }}>PARQUE ACUÁTICO</span>
+          </div>
+
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 0.35rem 0', color: '#f8fafc', letterSpacing: '-0.02em' }}>
             Acceso al Sistema
           </h2>
-          <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-            Manejo de Sesiones y Roles Oficiales — <strong>AquaPark Control</strong>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
+            Control de Bitácoras & Supervisión — <strong>AquaPark</strong>
           </p>
         </div>
 
         {/* FORMULARIO MANUAL CON SELECTOR DE ROL */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           
           <div className="input-group">
-            <label><ShieldCheck size={14} color="var(--primary)" /> Tipo de Cuenta / Rol *</label>
+            <label style={{ color: '#cbd5e1' }}><ShieldCheck size={14} color="#38bdf8" /> Tipo de Cuenta / Rol *</label>
             <select
               value={formData.role}
               onChange={(e) => {
@@ -91,7 +129,12 @@ export default function Login() {
                   role: e.target.value
                 });
               }}
-              style={{ fontWeight: 600 }}
+              style={{ 
+                fontWeight: 600, 
+                background: 'rgba(30, 41, 59, 0.85)', 
+                borderColor: 'rgba(255, 255, 255, 0.12)',
+                color: '#f8fafc' 
+              }}
             >
               <option value="admin">Administrador (Control total del sistema)</option>
               <option value="encargado">Encargado (Revisión y supervisión)</option>
@@ -100,18 +143,23 @@ export default function Login() {
           </div>
 
           <div className="input-group">
-            <label><Mail size={14} color="var(--primary)" /> Correo / Usuario *</label>
+            <label style={{ color: '#cbd5e1' }}><Mail size={14} color="#38bdf8" /> Correo / Usuario *</label>
             <input 
               type="text" 
               required 
               placeholder="correo@aquapark.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              style={{ 
+                background: 'rgba(30, 41, 59, 0.85)', 
+                borderColor: 'rgba(255, 255, 255, 0.12)',
+                color: '#f8fafc' 
+              }}
             />
           </div>
 
           <div className="input-group">
-            <label><Lock size={14} color="var(--primary)" /> Contraseña *</label>
+            <label style={{ color: '#cbd5e1' }}><Lock size={14} color="#38bdf8" /> Contraseña *</label>
             <div style={{ position: 'relative' }}>
               <input 
                 type={showPassword ? 'text' : 'password'} 
@@ -119,14 +167,19 @@ export default function Login() {
                 placeholder="Contraseña"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                style={{ paddingRight: '2.5rem' }}
+                style={{ 
+                  paddingRight: '2.5rem',
+                  background: 'rgba(30, 41, 59, 0.85)', 
+                  borderColor: 'rgba(255, 255, 255, 0.12)',
+                  color: '#f8fafc' 
+                }}
               />
               <button 
                 type="button" 
                 onClick={() => setShowPassword(!showPassword)}
                 style={{ 
                   position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem'
+                  background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0.2rem'
                 }}
                 title={showPassword ? 'Ocultar' : 'Mostrar'}
               >
@@ -138,7 +191,15 @@ export default function Login() {
           <button 
             type="submit" 
             className="btn btn-primary" 
-            style={{ padding: '0.85rem', fontSize: '0.95rem', marginTop: '0.5rem' }}
+            style={{ 
+              padding: '0.85rem', 
+              fontSize: '0.95rem', 
+              marginTop: '0.4rem',
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+              borderColor: '#0284c7',
+              boxShadow: '0 4px 15px rgba(2, 132, 199, 0.4)'
+            }}
           >
             <span>Iniciar Sesión como {formData.role.toUpperCase()}</span>
             <ArrowRight size={17} />
@@ -146,8 +207,8 @@ export default function Login() {
 
         </form>
 
-        <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--surface-border)', textAlign: 'center' }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+        <div style={{ marginTop: '1.6rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center' }}>
+          <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
             AquaPark Corporate Platform • Seguridad SSL
           </span>
         </div>

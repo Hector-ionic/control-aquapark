@@ -11,8 +11,9 @@
   
   --bg-color: #f8fafc;
   --bg-subtle: #f1f5f9;
-  --surface: #ffffff;
-  --surface-secondary: #f8fafc;
+  --bg-overlay: linear-gradient(rgba(248, 250, 252, 0.90), rgba(241, 245, 249, 0.94));
+  --surface: rgba(255, 255, 255, 0.90);
+  --surface-secondary: rgba(248, 250, 252, 0.82);
   --surface-hover: #f1f5f9;
   --surface-border: #e2e8f0;
   --surface-border-strong: #cbd5e1;
@@ -61,8 +62,9 @@
   
   --bg-color: #0b1120;
   --bg-subtle: #0f172a;
-  --surface: #111827;
-  --surface-secondary: #1e293b;
+  --bg-overlay: linear-gradient(rgba(11, 17, 32, 0.88), rgba(15, 23, 42, 0.94));
+  --surface: rgba(17, 24, 39, 0.88);
+  --surface-secondary: rgba(30, 41, 59, 0.80);
   --surface-hover: #243247;
   --surface-border: #1e293b;
   --surface-border-strong: #334155;
@@ -102,8 +104,9 @@
     
     --bg-color: #0b1120;
     --bg-subtle: #0f172a;
-    --surface: #111827;
-    --surface-secondary: #1e293b;
+    --bg-overlay: linear-gradient(rgba(11, 17, 32, 0.88), rgba(15, 23, 42, 0.94));
+    --surface: rgba(17, 24, 39, 0.88);
+    --surface-secondary: rgba(30, 41, 59, 0.80);
     --surface-hover: #243247;
     --surface-border: #1e293b;
     --surface-border-strong: #334155;
@@ -147,7 +150,9 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-image: radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 45%);
+  background-image: var(--bg-overlay, radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 45%)), url('/aquapark-bg.jpg');
+  background-size: cover;
+  background-position: center;
   background-attachment: fixed;
 }
 
@@ -183,6 +188,8 @@ body {
   transition: var(--transition);
   position: relative;
   overflow: hidden;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-card {
@@ -193,6 +200,8 @@ body {
   box-shadow: var(--shadow-xs);
   transition: var(--transition);
   position: relative;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-card:hover {
