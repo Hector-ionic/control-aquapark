@@ -868,7 +868,7 @@ export default function SupervisorDashboard() {
             </span>
             <span className="badge badge-neutral">Sesión Activa</span>
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>
+          <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700 }}>
             Panel de {currentUser.displayName}
           </h2>
           <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>

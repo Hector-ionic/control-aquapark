@@ -69,7 +69,7 @@ export default function Login() {
           width: '100%', 
           maxWidth: '460px', 
           padding: '2.5rem',
-          boxShadow: 'var(--shadow-xl)',
+          boxShadow: 'var(--shadow-md)',
           position: 'relative',
           zIndex: 2
         }}
@@ -93,7 +93,7 @@ export default function Login() {
             <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 700, letterSpacing: '0.04em' }}>PARQUE ACUÁTICO</span>
           </div>
 
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 0.35rem 0', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 700, margin: '0 0 0.35rem 0', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
             Acceso al Sistema
           </h2>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>

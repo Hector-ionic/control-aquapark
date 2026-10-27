@@ -461,7 +461,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               {activities.length} {activities.length === 1 ? 'Actividad' : 'Actividades'}
             </span>
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+          <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700, letterSpacing: '-0.01em' }}>
             {isEncargadoMode ? 'Informe Directo a RR.HH / Administración' : 'Registro Diario de Actividades'}
           </h2>
           <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.92rem', color: 'var(--text-secondary)' }}>

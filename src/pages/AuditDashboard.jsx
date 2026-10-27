@@ -225,7 +225,7 @@ export default function AuditDashboard() {
         }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <h2 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)' }}>
               <ShieldAlert size={28} color="var(--primary)" />
               Módulo de Auditoría y Trazabilidad
             </h2>
