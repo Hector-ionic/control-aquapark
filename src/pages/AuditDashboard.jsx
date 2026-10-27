@@ -212,10 +212,20 @@ export default function AuditDashboard() {
     <div className="animate-fade-in" style={{ maxWidth: '1280px', margin: '0 auto', padding: '1rem 0 3rem' }}>
       
       {/* Header del módulo */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div 
+        className="glass-panel"
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          flexWrap: 'wrap', 
+          gap: '1.25rem', 
+          marginBottom: '1.5rem', 
+          padding: '1.5rem 2rem' 
+        }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <h2 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <h2 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)' }}>
               <ShieldAlert size={28} color="var(--primary)" />
               Módulo de Auditoría y Trazabilidad
             </h2>

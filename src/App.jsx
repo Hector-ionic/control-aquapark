@@ -200,10 +200,25 @@ function App() {
             </Routes>
           </main>
 
-          <footer className="hide-on-pdf" style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid var(--surface-border)', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            <p style={{ margin: 0 }}>
-              © {new Date().getFullYear()} <strong>AquaPark Control</strong> — Plataforma Corporativa de Bitácoras y Supervisión.
-            </p>
+          <footer className="hide-on-pdf" style={{ marginTop: '3.5rem', marginBottom: '1rem', textAlign: 'center' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              background: 'var(--surface)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid var(--surface-border)',
+              borderRadius: 'var(--radius-full)',
+              padding: '0.6rem 1.6rem',
+              boxShadow: 'var(--shadow-sm)',
+              fontSize: '0.82rem',
+              color: 'var(--text-secondary)'
+            }}>
+              <span>© {new Date().getFullYear()}</span>
+              <strong style={{ color: 'var(--primary)' }}>AquaPark Control</strong>
+              <span>— Plataforma Corporativa de Bitácoras y Supervisión.</span>
+            </div>
           </footer>
         </div>
       </AuthProvider>

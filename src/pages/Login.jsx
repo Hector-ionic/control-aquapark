@@ -55,33 +55,21 @@ export default function Login() {
 
   return (
     <div style={{
-      position: 'relative',
-      minHeight: 'calc(100vh - 140px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '2.5rem 1rem',
-      borderRadius: 'var(--radius-lg)',
-      overflow: 'hidden',
-      marginTop: '1rem',
-      background: 'transparent',
-      boxShadow: 'var(--shadow-xl)',
-      border: '1px solid rgba(255, 255, 255, 0.12)'
+      minHeight: 'calc(100vh - 160px)'
     }}>
       
-      {/* TARJETA GLASSMORPHISM DE LOGIN */}
+      {/* TARJETA GLASSMORPHISM DE LOGIN ADAPTATIVA */}
       <div 
-        className="animate-fade-in" 
+        className="glass-panel animate-fade-in" 
         style={{ 
           width: '100%', 
           maxWidth: '460px', 
           padding: '2.5rem',
-          background: 'rgba(15, 23, 42, 0.78)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.75), 0 0 35px rgba(56, 189, 248, 0.15)',
+          boxShadow: 'var(--shadow-xl)',
           position: 'relative',
           zIndex: 2
         }}
@@ -100,15 +88,15 @@ export default function Login() {
             <ShieldCheck size={34} />
           </div>
 
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(2, 132, 199, 0.2)', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '0.2rem 0.65rem', borderRadius: '999px', marginBottom: '0.6rem' }}>
-            <Waves size={13} color="#38bdf8" />
-            <span style={{ fontSize: '0.72rem', color: '#bae6fd', fontWeight: 600, letterSpacing: '0.04em' }}>PARQUE ACUÁTICO</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'var(--primary-light)', border: '1px solid var(--accent-glow)', padding: '0.2rem 0.65rem', borderRadius: '999px', marginBottom: '0.6rem' }}>
+            <Waves size={13} color="var(--primary)" />
+            <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 700, letterSpacing: '0.04em' }}>PARQUE ACUÁTICO</span>
           </div>
 
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 0.35rem 0', color: '#f8fafc', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 0.35rem 0', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
             Acceso al Sistema
           </h2>
-          <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             Control de Bitácoras & Supervisión — <strong>AquaPark</strong>
           </p>
         </div>
@@ -117,7 +105,7 @@ export default function Login() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           
           <div className="input-group">
-            <label style={{ color: '#cbd5e1' }}><ShieldCheck size={14} color="#38bdf8" /> Tipo de Cuenta / Rol *</label>
+            <label><ShieldCheck size={14} color="var(--primary)" /> Tipo de Cuenta / Rol *</label>
             <select
               value={formData.role}
               onChange={(e) => {
@@ -140,7 +128,7 @@ export default function Login() {
           </div>
 
           <div className="input-group">
-            <label style={{ color: '#cbd5e1' }}><Mail size={14} color="#38bdf8" /> Correo / Usuario *</label>
+            <label><Mail size={14} color="var(--primary)" /> Correo / Usuario *</label>
             <input 
               type="text" 
               required 
@@ -156,7 +144,7 @@ export default function Login() {
           </div>
 
           <div className="input-group">
-            <label style={{ color: '#cbd5e1' }}><Lock size={14} color="#38bdf8" /> Contraseña *</label>
+            <label><Lock size={14} color="var(--primary)" /> Contraseña *</label>
             <div style={{ position: 'relative' }}>
               <input 
                 type={showPassword ? 'text' : 'password'} 
@@ -204,8 +192,8 @@ export default function Login() {
 
         </form>
 
-        <div style={{ marginTop: '1.6rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center' }}>
-          <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
+        <div style={{ marginTop: '1.6rem', paddingTop: '1.2rem', borderTop: '1px solid var(--surface-border)', textAlign: 'center' }}>
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
             AquaPark Corporate Platform • Seguridad SSL
           </span>
         </div>

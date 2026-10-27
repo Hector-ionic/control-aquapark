@@ -921,11 +921,21 @@ export default function SupervisorDashboard() {
 
       {/* ALERTA DE FIN DE MES (SOLO ADMIN) */}
       {currentUser?.role === 'Administrador' && new Date().getDate() >= 25 && (
-        <div style={{ 
-          background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', 
-          padding: '1.15rem', borderRadius: 'var(--radius-md)', 
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' 
-        }}>
+        <div 
+          className="glass-panel"
+          style={{ 
+            background: 'var(--surface)', 
+            border: '1px solid var(--warning-border)', 
+            borderLeft: '4px solid var(--warning)', 
+            padding: '1.15rem 1.5rem', 
+            borderRadius: 'var(--radius-md)', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            gap: '1rem', 
+            boxShadow: 'var(--shadow-sm)' 
+          }}>
           <div>
             <h4 style={{ color: 'var(--warning)', margin: '0 0 0.35rem 0', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
               <AlertTriangle size={18} /> Cierre mensual próximo
