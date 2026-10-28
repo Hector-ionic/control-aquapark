@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }) => {
   const login = ({ email, password, role: selectedRole }) => {
     const inputIdentifier = (email || '').trim().toLowerCase();
     const inputPassword = (password || '').trim();
-    const targetRole = (selectedRole || '').trim().toLowerCase();
+    const targetRole = selectedRole ? selectedRole.trim().toLowerCase() : null;
 
     // 1. Buscar si el usuario existe por correo o por alias
     const userFound = PREDEFINED_USERS.find(u => 
@@ -156,7 +156,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     // 3. VALIDACIÓN ESTRICTA DE ROL (seguridad: impide que un pasante ingrese como encargado o admin)
-    if (userFound.role.toLowerCase() !== targetRole) {
+    if (targetRole && userFound.role.toLowerCase() !== targetRole) {
       const rolNombres = {
         admin: 'Administrador',
         encargado: 'Encargado',

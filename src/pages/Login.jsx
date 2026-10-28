@@ -14,10 +14,8 @@ export default function Login() {
   const location = useLocation();
 
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
-    password: '',
-    role: 'admin'
+    password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -40,9 +38,7 @@ export default function Login() {
     try {
       const loggedUser = login({
         email: formData.email,
-        password: formData.password,
-        role: formData.role,
-        name: formData.name
+        password: formData.password
       });
 
       toast.success(`¡Bienvenido(a), ${loggedUser.name}! (Rol: ${loggedUser.role})`);
@@ -64,9 +60,9 @@ export default function Login() {
       logAuditEvent({
         action: AUDIT_ACTIONS.LOGIN_FALLIDO,
         module: AUDIT_MODULES.AUTH,
-        details: `Acceso rechazado para "${formData.email}" intentando entrar como ${formData.role}: ${errorMsg}`,
+        details: `Acceso rechazado para "${formData.email}": ${errorMsg}`,
         userName: formData.email,
-        userRole: formData.role
+        userRole: "No autenticado"
       });
     }
   };
@@ -122,28 +118,7 @@ export default function Login() {
         {/* FORMULARIO MANUAL CON SELECTOR DE ROL */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           
-          <div className="input-group">
-            <label><ShieldCheck size={14} color="var(--primary)" /> Tipo de Cuenta / Rol *</label>
-            <select
-              value={formData.role}
-              onChange={(e) => {
-                setFormData({
-                  ...formData,
-                  role: e.target.value
-                });
-              }}
-              style={{ 
-                fontWeight: 600, 
-                background: 'rgba(30, 41, 59, 0.85)', 
-                borderColor: 'rgba(255, 255, 255, 0.12)',
-                color: '#f8fafc' 
-              }}
-            >
-              <option value="admin">Administrador (Control total del sistema)</option>
-              <option value="encargado">Encargado (Revisión y supervisión)</option>
-              <option value="pasante">Pasante (Registro de actividades)</option>
-            </select>
-          </div>
+          
 
           <div className="input-group">
             <label><Mail size={14} color="var(--primary)" /> Correo / Usuario *</label>
@@ -204,7 +179,7 @@ export default function Login() {
               boxShadow: '0 4px 15px rgba(2, 132, 199, 0.4)'
             }}
           >
-            <span>Iniciar Sesión como {formData.role.toUpperCase()}</span>
+            <span>Ingresar al Sistema</span>
             <ArrowRight size={17} />
           </button>
 
