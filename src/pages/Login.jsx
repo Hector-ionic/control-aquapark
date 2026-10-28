@@ -9,9 +9,10 @@ import {
 import toast from 'react-hot-toast';
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 import { sendPasswordResetNotification } from '../services/mailService';
+import { createPasswordRequest } from '../services/passwordRequestService';
 
 export default function Login() {
-  const { login, resetPassword, user, role } = useAuth();
+  const { login, resetPassword, predefinedUsers = [], user, role } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -78,7 +79,7 @@ export default function Login() {
   };
 
   // Manejador para restablecer contraseña
-  const handleResetPassword = (e) => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
 
     if (!resetEmail.trim()) {
@@ -98,28 +99,34 @@ export default function Login() {
 
     setIsResetting(true);
     try {
-      const updatedUser = resetPassword({
-        email: resetEmail,
-        newPassword
+      const inputIdentifier = resetEmail.trim().toLowerCase();
+      const userFound = predefinedUsers.find(u => 
+        u.email.toLowerCase() === inputIdentifier || 
+        (u.aliases && u.aliases.some(alias => alias.toLowerCase() === inputIdentifier))
+      );
+
+      if (!userFound) {
+        throw new Error(`El usuario o correo "${resetEmail}" no está registrado en el sistema.`);
+      }
+
+      // Crear solicitud en Firestore y despachar correo a Gmail del Administrador (Carlos)
+      await createPasswordRequest({
+        name: userFound.name,
+        email: userFound.email,
+        role: userFound.role,
+        requestedPassword: newPassword
       });
 
-      // Despachar alerta instantánea a Gmail del Administrador (Carlos)
-      sendPasswordResetNotification({
-        name: updatedUser.name,
-        email: updatedUser.email,
-        role: updatedUser.role
-      });
+      toast.success(`🔔 Solicitud enviada al Administrador. Se ha notificado a su Gmail y aparecerá en su panel para admitirte.`);
 
-      toast.success(`✅ Contraseña actualizada para ${updatedUser.name}. Se ha notificado al Administrador a su Gmail.`);
-
-      // Auditoría: Restablecer contraseña exitoso
+      // Auditoría: Solicitud de restablecimiento registrada
       logAuditEvent({
         action: AUDIT_ACTIONS.RESTABLECER_PASSWORD,
         module: AUDIT_MODULES.AUTH,
-        details: `Contraseña restablecida exitosamente para ${updatedUser.name} (${updatedUser.email}).`,
-        userName: updatedUser.name,
-        userRole: updatedUser.role,
-        userId: updatedUser.id
+        details: `Solicitud de restablecimiento de contraseña registrada para ${userFound.name} (${userFound.email}). Notificación enviada al Admin.`,
+        userName: userFound.name,
+        userRole: userFound.role,
+        userId: userFound.id
       });
 
       setFormData(prev => ({ ...prev, email: resetEmail, password: '' }));
@@ -128,14 +135,14 @@ export default function Login() {
       setConfirmPassword('');
     } catch (err) {
       console.error(err);
-      const errorMsg = err.message || 'No se pudo restablecer la contraseña.';
+      const errorMsg = err.message || 'No se pudo enviar la solicitud.';
       toast.error(errorMsg);
 
       // Auditoría: Intento fallido
       logAuditEvent({
         action: AUDIT_ACTIONS.LOGIN_FALLIDO,
         module: AUDIT_MODULES.AUTH,
-        details: `Intento fallido de restablecer contraseña para "${resetEmail}": ${errorMsg}`,
+        details: `Intento fallido de solicitar restablecimiento para "${resetEmail}": ${errorMsg}`,
         userName: resetEmail,
         userRole: 'No autenticado'
       });
@@ -371,7 +378,7 @@ export default function Login() {
                 Restablecer Contraseña
               </h3>
               <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>
-                Ingresa tu correo o usuario y define tu nueva clave de acceso institucional.
+                Ingresa tu correo o usuario y la clave solicitada. El Administrador recibirá la alerta en su Gmail para admitirte.
               </p>
             </div>
 
@@ -488,7 +495,7 @@ export default function Login() {
                     boxShadow: '0 4px 12px rgba(2, 132, 199, 0.4)'
                   }}
                 >
-                  {isResetting ? 'Guardando...' : 'Guardar Clave'}
+                  {isResetting ? 'Enviando Solicitud...' : 'Solicitar al Administrador'}
                 </button>
               </div>
 
