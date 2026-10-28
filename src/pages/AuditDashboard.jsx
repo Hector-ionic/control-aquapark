@@ -173,6 +173,8 @@ export default function AuditDashboard() {
         return <span className="badge badge-success">Login Exitoso</span>;
       case AUDIT_ACTIONS.LOGIN_FALLIDO:
         return <span className="badge badge-error" style={{ animation: 'pulse 2s infinite' }}>Login Fallido</span>;
+      case AUDIT_ACTIONS.RESTABLECER_PASSWORD:
+        return <span className="badge badge-warning">Clave Restablecida</span>;
       case AUDIT_ACTIONS.CREAR_REPORTE:
         return <span className="badge badge-primary">Reporte Creado</span>;
       case AUDIT_ACTIONS.ACTUALIZAR_ESTADO:
