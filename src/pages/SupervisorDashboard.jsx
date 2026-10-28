@@ -425,6 +425,34 @@ export default function SupervisorDashboard() {
     }
   };
 
+  const handlePermanentDeleteReport = async (reportId, e) => {
+    if (e) e.stopPropagation();
+    const targetReport = reports.find(r => r.id === reportId) || selectedReport;
+    const studentName = targetReport?.student || 'Estudiante';
+
+    if (window.confirm(`⚠️ ¿Estás seguro de que deseas ELIMINAR DEFINITIVAMENTE el reporte de ${studentName}?\n\nEsta acción es irreversible y borrará el registro de la base de datos de forma permanente.`)) {
+      try {
+        await deleteDoc(doc(db, "reports", reportId));
+        setReports(reports.filter(r => r.id !== reportId));
+        if (selectedReport && selectedReport.id === reportId) {
+          setSelectedReport(null);
+        }
+        toast.success("Reporte eliminado definitivamente de la base de datos");
+        logAuditEvent({
+          action: AUDIT_ACTIONS.ELIMINAR_REPORTE,
+          module: AUDIT_MODULES.SUPERVISION,
+          details: `Reporte de ${studentName} eliminado permanentemente del sistema por el encargado.`,
+          targetId: reportId,
+          userName: currentUser?.displayName || 'Encargado',
+          userRole: (currentUser?.role === 'Administrador') ? 'admin' : 'encargado'
+        });
+      } catch (err) {
+        console.error("Error al eliminar definitivamente:", err);
+        toast.error("Hubo un error al eliminar el reporte.");
+      }
+    }
+  };
+
   const handleUpdateStatus = async (reportId, newStatus, e) => {
     if (e) e.stopPropagation();
     try {
@@ -745,9 +773,14 @@ export default function SupervisorDashboard() {
                 <AlertCircle size={16} /> Observar
               </button>
               {selectedReport.isDeleted ? (
-                <button onClick={(e) => handleRestoreReport(selectedReport.id, e)} className="btn btn-secondary" style={{ padding: '0.55rem 0.95rem' }}>
-                  <RefreshCw size={16} /> Restaurar
-                </button>
+                <>
+                  <button onClick={(e) => handleRestoreReport(selectedReport.id, e)} className="btn btn-secondary" style={{ padding: '0.55rem 0.95rem' }} title="Restaurar a la bandeja principal">
+                    <RefreshCw size={16} /> Restaurar
+                  </button>
+                  <button onClick={(e) => handlePermanentDeleteReport(selectedReport.id, e)} className="btn btn-danger" style={{ padding: '0.55rem 0.95rem' }} title="Eliminar permanentemente de la base de datos">
+                    <Trash2 size={16} /> Eliminar Definitivamente
+                  </button>
+                </>
               ) : (
                 <button onClick={(e) => handleDeleteReport(selectedReport.id, e)} className="btn btn-danger" style={{ padding: '0.55rem 0.95rem' }}>
                   <Trash2 size={16} /> Archivar
@@ -1154,14 +1187,24 @@ export default function SupervisorDashboard() {
                       <Eye size={15} /> Ver Detalle
                     </button>
                     {report.isDeleted ? (
-                      <button 
-                        className="btn btn-secondary" 
-                        onClick={(e) => handleRestoreReport(report.id, e)} 
-                        style={{ padding: '0.45rem 0.65rem' }} 
-                        title="Restaurar a bandeja principal"
-                      >
-                        <RefreshCw size={15} />
-                      </button>
+                      <>
+                        <button 
+                          className="btn btn-secondary" 
+                          onClick={(e) => handleRestoreReport(report.id, e)} 
+                          style={{ padding: '0.45rem 0.65rem' }} 
+                          title="Restaurar a bandeja principal"
+                        >
+                          <RefreshCw size={15} color="var(--primary)" />
+                        </button>
+                        <button 
+                          className="btn btn-secondary" 
+                          onClick={(e) => handlePermanentDeleteReport(report.id, e)} 
+                          style={{ padding: '0.45rem 0.65rem' }} 
+                          title="Eliminar definitivamente de la base de datos"
+                        >
+                          <Trash2 size={15} color="var(--error)" />
+                        </button>
+                      </>
                     ) : (
                       <button 
                         className="btn btn-secondary" 
