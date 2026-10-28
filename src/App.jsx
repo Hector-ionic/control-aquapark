@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { ShieldCheck, PlusCircle, LogIn, LogOut, User, Sparkles, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, PlusCircle, LogIn, LogOut, User, Sparkles, ShieldAlert, Image as ImageIcon } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import StudentForm from './pages/StudentForm';
 import SupervisorDashboard from './pages/SupervisorDashboard';
 import AuditDashboard from './pages/AuditDashboard';
+import DynamicBackground from './components/DynamicBackground';
 
 function NavigationHeader({ theme, setTheme }) {
   const location = useLocation();
@@ -48,27 +49,40 @@ function NavigationHeader({ theme, setTheme }) {
       <nav style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
         
         {/* SELECTOR DE TEMA */}
-        <select 
-          value={theme} 
-          onChange={e => setTheme(e.target.value)}
-          aria-label="Selector de tema visual"
-          style={{ 
-            padding: '0.5rem 0.75rem', 
-            borderRadius: 'var(--radius-sm)', 
-            border: '1px solid var(--surface-border)', 
-            background: 'var(--surface-secondary)', 
-            color: 'var(--text-main)', 
-            outline: 'none', 
-            cursor: 'pointer', 
-            width: 'auto',
-            fontSize: '0.85rem',
-            fontWeight: 500
-          }}
-        >
-          <option value="system">💻 Sistema</option>
-          <option value="light">☀️ Claro</option>
-          <option value="dark">🌙 Oscuro</option>
-        </select>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <select 
+            value={theme} 
+            onChange={e => setTheme(e.target.value)}
+            aria-label="Selector de tema visual"
+            style={{ 
+              padding: '0.5rem 0.75rem', 
+              borderRadius: 'var(--radius-sm)', 
+              border: '1px solid var(--surface-border)', 
+              background: 'var(--surface-secondary)', 
+              color: 'var(--text-main)', 
+              outline: 'none', 
+              cursor: 'pointer', 
+              width: 'auto',
+              fontSize: '0.85rem',
+              fontWeight: 500
+            }}
+          >
+            <option value="system">💻 Sistema</option>
+            <option value="light">☀️ Claro</option>
+            <option value="dark">🌙 Oscuro</option>
+          </select>
+
+          <button 
+            type="button" 
+            onClick={() => window.dispatchEvent(new CustomEvent('aquapark:next-bg'))}
+            title="Cambiar fotografía de fondo del parque"
+            className="btn btn-secondary"
+            style={{ padding: '0.5rem 0.65rem', fontSize: '0.85rem' }}
+            aria-label="Cambiar fotografía de fondo"
+          >
+            <ImageIcon size={16} />
+          </button>
+        </div>
         
         {/* ENLACES DE NAVEGACIÓN */}
         <Link 
@@ -161,6 +175,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <DynamicBackground theme={theme} />
         <Toaster 
           position="top-right" 
           toastOptions={{
