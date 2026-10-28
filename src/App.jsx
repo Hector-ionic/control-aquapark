@@ -96,17 +96,20 @@ function NavigationHeader({ theme, setTheme }) {
           Nuevo Reporte
         </Link>
 
-        <Link 
-          to="/supervisor" 
-          className={`btn ${isSupervisor ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ padding: '0.5rem 0.95rem', fontSize: '0.85rem' }}
-        >
-          <ShieldCheck size={16} />
-          Bandeja Supervisor
-        </Link>
+        {/* BANDEJA SUPERVISOR: Solo visible para Encargado o Admin autenticado */}
+        {user && (role === 'encargado' || role === 'admin') && (
+          <Link 
+            to="/supervisor" 
+            className={`btn ${isSupervisor ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.5rem 0.95rem', fontSize: '0.85rem' }}
+          >
+            <ShieldCheck size={16} />
+            Bandeja Supervisor
+          </Link>
+        )}
 
-        {/* BOTÓN AUDITORÍA (VISIBLE PARA ADMIN O PARA AUDITAR) */}
-        {(!user || role === 'admin') && (
+        {/* BOTÓN AUDITORÍA: Solo visible para Administrador autenticado */}
+        {user && role === 'admin' && (
           <Link 
             to="/auditoria" 
             className={`btn ${isAudit ? 'btn-primary' : 'btn-secondary'}`}
