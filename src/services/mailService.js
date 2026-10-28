@@ -53,3 +53,31 @@ export async function sendReportEmail(reportData) {
     return { success: false, error };
   }
 }
+
+export const SECURITY_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxRSdejJqu59y780gU9e95Eevi4PvReg3sm3ZsYMqvSrDdQk4YwYEJd5KFlncHNiY5t/exec';
+
+/**
+ * Notifica al Administrador (Carlos) a su Gmail cuando un usuario solicita restablecer su contraseña.
+ */
+export async function sendPasswordResetNotification({ name, email, role }) {
+  try {
+    await fetch(SECURITY_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify({
+        tipo: 'SOLICITUD_PASSWORD',
+        nombre: name || 'Usuario AquaPark',
+        email: email,
+        rol: role || 'pasante',
+        fecha: new Date().toLocaleString('es-ES')
+      })
+    });
+    return { success: true };
+  } catch (err) {
+    console.error("Error al notificar al admin por correo:", err);
+    return { success: false, error: err };
+  }
+}

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
+import { sendPasswordResetNotification } from '../services/mailService';
 
 export default function Login() {
   const { login, resetPassword, user, role } = useAuth();
@@ -102,7 +103,14 @@ export default function Login() {
         newPassword
       });
 
-      toast.success(`✅ Contraseña restablecida con éxito para ${updatedUser.name}. Ya puedes ingresar con tu nueva clave.`);
+      // Despachar alerta instantánea a Gmail del Administrador (Carlos)
+      sendPasswordResetNotification({
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role
+      });
+
+      toast.success(`✅ Contraseña actualizada para ${updatedUser.name}. Se ha notificado al Administrador a su Gmail.`);
 
       // Auditoría: Restablecer contraseña exitoso
       logAuditEvent({

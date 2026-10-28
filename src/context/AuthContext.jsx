@@ -13,6 +13,16 @@ export const useAuth = () => {
 // Directorio oficial de cuentas autorizadas en AquaPark Control
 export const PREDEFINED_USERS = [
   {
+    id: 'usr-admin-carlos',
+    name: 'Carlos Apaza',
+    email: 'carlosapaza967@gmail.com',
+    aliases: ['carlos', 'carlos apaza', 'admin carlos', 'carlosapaza967'],
+    passwords: ['admin', '123456', 'AquaPark#2026'],
+    role: 'admin',
+    area: 'Dirección de Tecnología y Desarrollo'
+  },
+
+  {
     id: 'usr-admin-01',
     name: 'Administrador General',
     email: 'admin@aquapark.com',
