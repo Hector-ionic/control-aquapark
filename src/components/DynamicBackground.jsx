@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const DAY_IMAGES = [
   '/bg-day-1.jpg',
@@ -15,9 +15,10 @@ const NIGHT_IMAGES = [
 /**
  * Componente de Fondo Dinámico Contextual (Día / Noche)
  * - Detecta el tema activo (Claro / Oscuro / Sistema).
- * - Realiza transiciones suaves con fundido cruzado (cross-fade de 1.2s).
- * - Pre-carga todas las imágenes para evitar parpadeos o pantallas blancas.
- * - Incluye capa de oscurecimiento adaptativo para proteger la legibilidad y contraste WCAG.
+ * - Ciclo interactivo: Al alternar entre Claro y Oscuro, avanza secuencialmente a la siguiente imagen.
+ * - Transición con fundido cruzado suave (cross-fade de 1.2s).
+ * - Pre-carga todas las imágenes para evitar parpadeos.
+ * - Capa de oscurecimiento y contraste adaptativo según el modo (WCAG AA).
  */
 export default function DynamicBackground({ theme }) {
   const [isDark, setIsDark] = useState(() => {
@@ -28,6 +29,9 @@ export default function DynamicBackground({ theme }) {
 
   const [dayIndex, setDayIndex] = useState(0);
   const [nightIndex, setNightIndex] = useState(0);
+
+  const prevDarkRef = useRef(isDark);
+  const hasSwitchedRef = useRef(false);
 
   // Pre-cargar todas las imágenes en segundo plano al montar
   useEffect(() => {
@@ -54,7 +58,25 @@ export default function DynamicBackground({ theme }) {
     }
   }, [theme]);
 
-  // Rotación suave opcional cada 90 segundos entre la galería del modo activo
+  // Avanzar secuencialmente a la siguiente foto al alternar entre Claro y Oscuro
+  // Ejemplo: Claro(1) -> Oscuro(1) -> Claro(2) -> Oscuro(2) -> Claro(3) -> Oscuro(3) -> ...
+  useEffect(() => {
+    if (prevDarkRef.current !== isDark) {
+      prevDarkRef.current = isDark;
+      if (!hasSwitchedRef.current) {
+        hasSwitchedRef.current = true;
+        // Primer cambio: si inició en claro y pasa a oscuro, se muestra nightIndex=0 (Noche 1)
+        return;
+      }
+      if (isDark) {
+        setNightIndex((prev) => (prev + 1) % NIGHT_IMAGES.length);
+      } else {
+        setDayIndex((prev) => (prev + 1) % DAY_IMAGES.length);
+      }
+    }
+  }, [isDark]);
+
+  // Rotación automática suave cada 90 segundos entre la galería del modo activo
   useEffect(() => {
     const interval = setInterval(() => {
       if (isDark) {
@@ -66,7 +88,7 @@ export default function DynamicBackground({ theme }) {
     return () => clearInterval(interval);
   }, [isDark]);
 
-  // Exponer evento personalizado para rotar fondo manualmente si el usuario lo desea
+  // Evento personalizado para cambiar foto manualmente desde el botón de la cabecera
   useEffect(() => {
     const handleNextBg = () => {
       if (isDark) {
@@ -139,7 +161,7 @@ export default function DynamicBackground({ theme }) {
           inset: 0,
           background: isDark
             ? 'linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0.88) 100%)'
-            : 'linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(240, 249, 255, 0.40) 100%)',
+            : 'linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(240, 249, 255, 0.38) 100%)',
           backdropFilter: isDark ? 'blur(2px)' : 'none',
           WebkitBackdropFilter: isDark ? 'blur(2px)' : 'none',
           transition: 'background 0.8s ease, backdrop-filter 0.8s ease'
