@@ -62,6 +62,19 @@ export default function SupervisorDashboard() {
   const [staffList, setStaffList] = useState(() => getSupervisors(true));
   const [newStaff, setNewStaff] = useState({ name: '', area: '' });
   const [staffFilter, setStaffFilter] = useState('activos');
+  const [showPasswordRequestsModal, setShowPasswordRequestsModal] = useState(false);
+  const [passwordRequests, setPasswordRequests] = useState([]);
+
+  useEffect(() => {
+    const unsub = subscribeToPasswordRequests((list) => {
+      setPasswordRequests(list || []);
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, []);
+
+  const pendingRequestsCount = passwordRequests.filter(r => r.status === 'pendiente').length;
 
   const handleDeleteSupervisor = (sup) => {
     if (window.confirm(`¿Estás seguro de eliminar a ${sup.name}? Ya no aparecerá en el formulario de nuevos reportes, pero todos sus reportes pasados y registros históricos permanecerán 100% intactos.`)) {
