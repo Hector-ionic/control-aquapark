@@ -3,13 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   ShieldCheck, User, Lock, Mail, ArrowRight, 
-  Sparkles, ShieldAlert, GraduationCap, Briefcase, Eye, EyeOff, Waves
+  Sparkles, ShieldAlert, GraduationCap, Briefcase, Eye, EyeOff, Waves,
+  KeyRound, X, CheckCircle2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 
 export default function Login() {
-  const { login, user, role } = useAuth();
+  const { login, resetPassword, user, role } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -18,6 +19,14 @@ export default function Login() {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+
+  // Estados para el Modal de Restablecer Contraseña
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Si ya tiene sesión iniciada, redirigir
   useEffect(() => {
@@ -64,6 +73,66 @@ export default function Login() {
         userName: formData.email,
         userRole: "No autenticado"
       });
+    }
+  };
+
+  // Manejador para restablecer contraseña
+  const handleResetPassword = (e) => {
+    e.preventDefault();
+
+    if (!resetEmail.trim()) {
+      toast.error('Por favor ingresa tu correo o usuario registrado');
+      return;
+    }
+
+    if (!newPassword.trim() || newPassword.length < 4) {
+      toast.error('La nueva contraseña debe tener al menos 4 caracteres');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('Las contraseñas no coinciden. Por favor verifícalas');
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const updatedUser = resetPassword({
+        email: resetEmail,
+        newPassword
+      });
+
+      toast.success(`✅ Contraseña restablecida con éxito para ${updatedUser.name}. Ya puedes ingresar con tu nueva clave.`);
+
+      // Auditoría: Restablecer contraseña exitoso
+      logAuditEvent({
+        action: AUDIT_ACTIONS.RESTABLECER_PASSWORD,
+        module: AUDIT_MODULES.AUTH,
+        details: `Contraseña restablecida exitosamente para ${updatedUser.name} (${updatedUser.email}).`,
+        userName: updatedUser.name,
+        userRole: updatedUser.role,
+        userId: updatedUser.id
+      });
+
+      setFormData(prev => ({ ...prev, email: resetEmail, password: '' }));
+      setShowResetModal(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      console.error(err);
+      const errorMsg = err.message || 'No se pudo restablecer la contraseña.';
+      toast.error(errorMsg);
+
+      // Auditoría: Intento fallido
+      logAuditEvent({
+        action: AUDIT_ACTIONS.LOGIN_FALLIDO,
+        module: AUDIT_MODULES.AUTH,
+        details: `Intento fallido de restablecer contraseña para "${resetEmail}": ${errorMsg}`,
+        userName: resetEmail,
+        userRole: 'No autenticado'
+      });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -115,11 +184,9 @@ export default function Login() {
           </p>
         </div>
 
-        {/* FORMULARIO MANUAL CON SELECTOR DE ROL */}
+        {/* FORMULARIO DE ACCESO */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           
-          
-
           <div className="input-group">
             <label><Mail size={14} color="var(--primary)" /> Correo / Usuario *</label>
             <input 
@@ -166,6 +233,35 @@ export default function Login() {
             </div>
           </div>
 
+          {/* ENLACE RESTAURAR CONTRASEÑA */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-0.4rem', marginBottom: '0.2rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setResetEmail(formData.email || '');
+                setNewPassword('');
+                setConfirmPassword('');
+                setShowResetModal(true);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#38bdf8',
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                padding: '0.2rem 0',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontWeight: 500,
+                textDecoration: 'underline'
+              }}
+            >
+              <KeyRound size={13} />
+              <span>¿Olvidaste tu contraseña?</span>
+            </button>
+          </div>
+
           <button 
             type="submit" 
             className="btn btn-primary" 
@@ -176,7 +272,11 @@ export default function Login() {
               fontWeight: 700,
               background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
               borderColor: '#0284c7',
-              boxShadow: '0 4px 15px rgba(2, 132, 199, 0.4)'
+              boxShadow: '0 4px 15px rgba(2, 132, 199, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
             }}
           >
             <span>Ingresar al Sistema</span>
@@ -192,6 +292,202 @@ export default function Login() {
         </div>
 
       </div>
+
+      {/* MODAL PARA RESTABLECER CONTRASEÑA */}
+      {showResetModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.8)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '1rem'
+        }}>
+          <div 
+            className="animate-fade-in"
+            style={{
+              background: '#1e293b',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '16px',
+              padding: '2rem',
+              maxWidth: '440px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+              position: 'relative',
+              color: '#f8fafc'
+            }}
+          >
+            {/* Botón Cerrar */}
+            <button
+              type="button"
+              onClick={() => setShowResetModal(false)}
+              style={{
+                position: 'absolute',
+                top: '1.2rem',
+                right: '1.2rem',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#94a3b8',
+                cursor: 'pointer'
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            {/* Cabecera del Modal */}
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'rgba(56, 189, 248, 0.15)',
+                color: '#38bdf8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 0.75rem',
+                border: '1px solid rgba(56, 189, 248, 0.3)'
+              }}>
+                <KeyRound size={28} />
+              </div>
+              <h3 style={{ margin: '0 0 0.3rem', fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc' }}>
+                Restablecer Contraseña
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>
+                Ingresa tu correo o usuario y define tu nueva clave de acceso institucional.
+              </p>
+            </div>
+
+            {/* Formulario de Restablecimiento */}
+            <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              
+              <div className="input-group">
+                <label style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.3rem' }}>
+                  <Mail size={13} color="#38bdf8" /> Correo o Usuario *
+                </label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="ej. juan.perez@aquapark.com"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem'
+                  }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.3rem' }}>
+                  <Lock size={13} color="#38bdf8" /> Nueva Contraseña *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Mínimo 4 caracteres"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 2.2rem 0.65rem 0.85rem',
+                      borderRadius: '8px',
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#f8fafc',
+                      fontSize: '0.9rem'
+                    }}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{ 
+                      position: 'absolute', right: '0.6rem', top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0.2rem'
+                    }}
+                  >
+                    {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.3rem' }}>
+                  <CheckCircle2 size={13} color="#38bdf8" /> Confirmar Nueva Contraseña *
+                </label>
+                <input 
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  placeholder="Repite la nueva contraseña"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  style={{
+                    flex: 1,
+                    padding: '0.65rem',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#cbd5e1',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResetting}
+                  style={{
+                    flex: 1.5,
+                    padding: '0.65rem',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    border: '1px solid #0284c7',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    cursor: isResetting ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(2, 132, 199, 0.4)'
+                  }}
+                >
+                  {isResetting ? 'Guardando...' : 'Guardar Clave'}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

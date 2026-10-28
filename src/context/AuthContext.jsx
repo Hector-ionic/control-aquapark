@@ -105,6 +105,16 @@ export const PREDEFINED_USERS = [
 ];
 
 const STORAGE_KEY = 'aquapark_auth_session';
+const PASSWORDS_STORAGE_KEY = 'aquapark_custom_passwords';
+
+const getCustomPasswords = () => {
+  try {
+    const raw = localStorage.getItem(PASSWORDS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -185,6 +195,33 @@ export const AuthProvider = ({ children }) => {
     return sessionData;
   };
 
+
+  // Función para restablecer contraseña de usuario
+  const resetPassword = ({ email, newPassword }) => {
+    const inputIdentifier = (email || '').trim().toLowerCase();
+    const cleanPassword = (newPassword || '').trim();
+
+    if (!cleanPassword || cleanPassword.length < 4) {
+      throw new Error('La nueva contraseña debe tener al menos 4 caracteres.');
+    }
+
+    const userFound = PREDEFINED_USERS.find(u => 
+      u.email.toLowerCase() === inputIdentifier || 
+      (u.aliases && u.aliases.some(alias => alias.toLowerCase() === inputIdentifier))
+    );
+
+    if (!userFound) {
+      throw new Error(`El usuario o correo "${email}" no está registrado en el sistema.`);
+    }
+
+    const customPasswords = getCustomPasswords();
+    customPasswords[userFound.id] = cleanPassword;
+    customPasswords[userFound.email.toLowerCase()] = cleanPassword;
+    localStorage.setItem(PASSWORDS_STORAGE_KEY, JSON.stringify(customPasswords));
+
+    return userFound;
+  };
+
   // 3. Inicio de sesión rápido con un clic (perfiles demo)
   const quickLogin = (predefinedUser) => {
     const sessionData = {
@@ -215,6 +252,7 @@ export const AuthProvider = ({ children }) => {
     role, // 'admin' | 'encargado' | 'pasante'
     loading,
     login,
+    resetPassword,
     quickLogin,
     logout,
     predefinedUsers: PREDEFINED_USERS
