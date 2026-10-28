@@ -6,6 +6,7 @@ import {
   Sparkles, ShieldAlert, GraduationCap, Briefcase, Eye, EyeOff, Waves
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 
 export default function Login() {
   const { login, user, role } = useAuth();
@@ -47,9 +48,26 @@ export default function Login() {
       toast.success(`¡Bienvenido(a), ${loggedUser.name}! (Rol: ${loggedUser.role})`);
       const destination = location.state?.from?.pathname || (loggedUser.role === 'pasante' ? '/' : '/supervisor');
       navigate(destination, { replace: true });
+      // Auditoría: Login exitoso
+      logAuditEvent({
+        action: AUDIT_ACTIONS.LOGIN_EXITOSO,
+        module: AUDIT_MODULES.AUTH,
+        details: `Acceso autorizado a ${loggedUser.name} con rol ${loggedUser.role}.`,
+        userName: loggedUser.name,
+        userRole: loggedUser.role
+      });
     } catch (err) {
       console.error(err);
-      toast.error('Ocurrió un error al iniciar sesión.');
+      const errorMsg = err.message || 'Ocurrió un error al iniciar sesión.';
+      toast.error(errorMsg);
+      // Auditoría: Login fallido / bloqueo por rol
+      logAuditEvent({
+        action: AUDIT_ACTIONS.LOGIN_FALLIDO,
+        module: AUDIT_MODULES.AUTH,
+        details: `Acceso rechazado para "${formData.email}" intentando entrar como ${formData.role}: ${errorMsg}`,
+        userName: formData.email,
+        userRole: formData.role
+      });
     }
   };
 
