@@ -4,7 +4,7 @@ import {
   Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, 
   Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, 
   ArrowLeft, CheckCircle, AlertTriangle, AlertCircle, ShieldCheck, RefreshCw,
-  Building2, GraduationCap, UserCheck, Calendar, Sparkles, Check, FileSpreadsheet, Users, UserPlus, X
+  Building2, GraduationCap, UserCheck, Calendar, Sparkles, Check, FileSpreadsheet, Users, KeyRound, UserPlus, X
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
@@ -40,6 +40,7 @@ class ReportErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
+
         <div className="glass-panel" style={{ background: 'var(--error-bg)', border: '1px solid var(--error-border)' }}>
           <h2 style={{ color: 'var(--error)' }}>Error al renderizar el reporte</h2>
           <p>Ocurrió una excepción al procesar los datos de este informe.</p>
@@ -938,6 +939,38 @@ export default function SupervisorDashboard() {
               title="Gestionar altas, bajas y eliminación de encargados"
             >
               <Users size={16} color="var(--primary)" /> Gestión de Encargados
+            </button>
+          )}
+
+          {currentUser.role === 'Administrador' && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setShowPasswordRequestsModal(true)}
+              style={{ 
+                display: 'inline-flex',
+                alignItems: 'center', 
+                gap: '0.45rem',
+                borderColor: pendingRequestsCount > 0 ? '#38bdf8' : undefined,
+                background: pendingRequestsCount > 0 ? 'rgba(2, 132, 199, 0.25)' : undefined,
+                fontWeight: 600
+              }}
+              title="Ver y admitir solicitudes de restablecimiento de contraseña"
+            >
+              <KeyRound size={16} color="var(--primary)" />
+              <span>Solicitudes de Clave</span>
+              {pendingRequestsCount > 0 && (
+                <span style={{
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.72rem',
+                  fontWeight: 'bold',
+                  padding: '0.1rem 0.45rem',
+                  borderRadius: '999px',
+                  lineHeight: 1
+                }}>
+                  {pendingRequestsCount}
+                </span>
+              )}
             </button>
           )}
           <button 
