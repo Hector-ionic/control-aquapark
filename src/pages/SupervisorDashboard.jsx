@@ -13,6 +13,8 @@ import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, onSnapsho
 import StudentForm from './StudentForm';
 import { logAuditEvent, AUDIT_ACTIONS, AUDIT_MODULES } from '../services/auditService';
 import { useAuth } from '../context/AuthContext';
+import PasswordRequestsModal from '../components/PasswordRequestsModal';
+import { subscribeToPasswordRequests } from '../services/passwordRequestService';
 import {
   getSupervisors, deleteSupervisor, restoreSupervisor,
   toggleSupervisorActive, addSupervisor
