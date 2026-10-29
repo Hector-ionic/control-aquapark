@@ -16,6 +16,21 @@ import DynamicBackground from './components/DynamicBackground';
 function NavigationHeader({ theme, setTheme }) {
   const location = useLocation();
   const { user, role, logout } = useAuth();
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordRequests, setPasswordRequests] = useState([]);
+
+  useEffect(() => {
+    if (role === 'admin') {
+      const unsub = subscribeToPasswordRequests((list) => {
+        setPasswordRequests(list || []);
+      });
+      return () => {
+        if (typeof unsub === 'function') unsub();
+      };
+    }
+  }, [role]);
+
+  const pendingRequestsCount = passwordRequests.filter(r => r.status === 'pendiente').length;
   const isSupervisor = location.pathname.startsWith('/supervisor');
   const isLogin = location.pathname.startsWith('/login');
   const isAudit = location.pathname.startsWith('/auditoria');
@@ -120,6 +135,42 @@ function NavigationHeader({ theme, setTheme }) {
           </Link>
         )}
 
+        {/* BOTÓN SOLICITUDES DE CLAVE EN BARRA SUPERIOR (SOLO ADMIN) */}
+        {user && role === 'admin' && (
+          <button
+            type="button"
+            onClick={() => setShowPasswordModal(true)}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '0.5rem 0.95rem', 
+              fontSize: '0.85rem', 
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              borderColor: pendingRequestsCount > 0 ? '#38bdf8' : undefined,
+              background: pendingRequestsCount > 0 ? 'rgba(2, 132, 199, 0.25)' : undefined,
+              fontWeight: 600
+            }}
+            title="Ver y admitir solicitudes de restablecimiento de contraseña"
+          >
+            <KeyRound size={16} color="var(--primary)" />
+            <span>Solicitudes Clave</span>
+            {pendingRequestsCount > 0 && (
+              <span style={{
+                background: '#ef4444',
+                color: '#ffffff',
+                fontSize: '0.72rem',
+                fontWeight: 'bold',
+                padding: '0.1rem 0.45rem',
+                borderRadius: '999px',
+                lineHeight: 1
+              }}>
+                {pendingRequestsCount}
+              </span>
+            )}
+          </button>
+        )}
+
         {/* ZONA DE USUARIO LOGUEADO / LOGIN */}
         {user ? (
           <div style={{ 
@@ -161,6 +212,14 @@ function NavigationHeader({ theme, setTheme }) {
           </Link>
         )}
       </nav>
+
+      {/* MODAL SOLICITUDES DE CONTRASEÑA */}
+      <PasswordRequestsModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        requests={passwordRequests}
+        adminName={user?.name || 'Carlos Apaza'}
+      />
     </header>
   );
 }

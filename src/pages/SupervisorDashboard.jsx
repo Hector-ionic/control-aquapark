@@ -1449,6 +1449,14 @@ export default function SupervisorDashboard() {
         </div>,
         document.body
       )}
+    
+      {/* MODAL SOLICITUDES DE CONTRASEÑA */}
+      <PasswordRequestsModal
+        isOpen={showPasswordRequestsModal}
+        onClose={() => setShowPasswordRequestsModal(false)}
+        requests={passwordRequests}
+        adminName={currentUser?.displayName || 'Carlos Apaza'}
+      />
     </div>
   );
 }
