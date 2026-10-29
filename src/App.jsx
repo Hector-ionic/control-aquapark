@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { ShieldCheck, PlusCircle, LogIn, LogOut, User, Sparkles, ShieldAlert, Image as ImageIcon, KeyRound, Wifi, WifiOff } from 'lucide-react';
+import { ShieldCheck, PlusCircle, LogIn, LogOut, User, Sparkles, ShieldAlert, Image as ImageIcon, KeyRound, Wifi, WifiOff, Sun, Moon } from 'lucide-react';
 import PasswordRequestsModal from './components/PasswordRequestsModal';
 import { subscribeToPasswordRequests } from './services/passwordRequestService';
 import { Toaster } from 'react-hot-toast';
@@ -74,29 +74,57 @@ function NavigationHeader({ theme, setTheme, isOnline = true }) {
       
       <nav style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
         
-        {/* SELECTOR DE TEMA */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <select 
-            value={theme} 
-            onChange={e => setTheme(e.target.value)}
-            aria-label="Selector de tema visual"
-            style={{ 
-              padding: '0.5rem 0.75rem', 
-              borderRadius: 'var(--radius-sm)', 
-              border: '1px solid var(--surface-border)', 
-              background: 'var(--surface-secondary)', 
-              color: 'var(--text-main)', 
-              outline: 'none', 
-              cursor: 'pointer', 
-              width: 'auto',
-              fontSize: '0.85rem',
-              fontWeight: 500
+        {/* INTERRUPTOR DESLIZABLE (TOGGLE SWITCH) CLARO / OSCURO */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <button
+            type="button"
+            onClick={() => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))}
+            style={{
+              position: 'relative',
+              width: '64px',
+              height: '32px',
+              borderRadius: '999px',
+              background: theme === 'dark' ? '#0f172a' : '#e0f2fe',
+              border: '1.5px solid var(--surface-border-strong)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0 6px',
+              transition: 'background 0.3s ease, border-color 0.3s ease',
+              outline: 'none',
+              userSelect: 'none'
             }}
+            title={theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+            aria-label="Alternar tema claro y oscuro"
           >
-            <option value="system">💻 Sistema</option>
-            <option value="light">☀️ Claro</option>
-            <option value="dark">🌙 Oscuro</option>
-          </select>
+            <Sun size={13} color="#f59e0b" style={{ opacity: theme === 'dark' ? 0.35 : 1, transition: 'opacity 0.25s ease' }} />
+            <Moon size={13} color="#38bdf8" style={{ opacity: theme === 'dark' ? 1 : 0.35, transition: 'opacity 0.25s ease' }} />
+            
+            {/* Bolita deslizante */}
+            <span
+              style={{
+                position: 'absolute',
+                top: '2.5px',
+                left: theme === 'dark' ? '34px' : '3px',
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: theme === 'dark' ? '#0284c7' : '#ffffff',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.25)',
+                transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {theme === 'dark' ? (
+                <Moon size={12} color="#ffffff" />
+              ) : (
+                <Sun size={12} color="#f59e0b" />
+              )}
+            </span>
+          </button>
 
           <button 
             type="button" 

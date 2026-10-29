@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, 
   FileText, Clock, Calendar, User, Briefcase, GraduationCap, Building2, 
-  CheckCircle2, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, X, Save, RotateCcw
+  CheckCircle2, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, X, Save, RotateCcw, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
@@ -85,7 +85,8 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         turno: '', 
         conclusion: '' 
       });
-      setActivities([{ id: 1, description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
+      setActivities([{ id: Date.now(), description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
+      setCurrentStep(1);
     }
   };
   
@@ -103,7 +104,34 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
   ]);
 
   // Estado para gestión de borrador automático
+  // Control de pasos del formulario (Wizard Stepper sin scroll)
+  const [currentStep, setCurrentStep] = useState(1);
+
   const [draftSavedAt, setDraftSavedAt] = useState(null);
+
+  // Validadores y navegación entre pasos
+  const handleNextFromStep1 = () => {
+    if (!formData.name.trim() || !formData.career.trim() || !formData.institution.trim() || !formData.turno) {
+      toast.error("⚠️ Por favor completa tu Nombre, Carrera, Institución y Turno antes de avanzar.");
+      return;
+    }
+    if (!formData.supervisor) {
+      toast.error("⚠️ Debes seleccionar al Encargado destinatario.");
+      return;
+    }
+    setCurrentStep(2);
+    window.scrollTo({ top: 140, behavior: 'smooth' });
+  };
+
+  const handleNextFromStep2 = () => {
+    const emptyIndex = activities.findIndex(act => act.description.trim().length < 10);
+    if (emptyIndex !== -1) {
+      toast.error(`⚠️ La Actividad #${emptyIndex + 1} debe tener al menos 10 caracteres explicativos.`);
+      return;
+    }
+    setCurrentStep(3);
+    window.scrollTo({ top: 140, behavior: 'smooth' });
+  };
 
   // Cargar borrador de localStorage al montar el formulario (modo pasante)
   useEffect(() => {
@@ -454,6 +482,22 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         ...reportData
       });
       toast.success("✅ ¡Bitácora registrada con éxito!");
+
+      // Limpiar de inmediato el formulario para permitir un nuevo llenado limpio
+      if (!isEncargadoMode) {
+        localStorage.removeItem('aquapark_report_draft');
+        setDraftSavedAt(null);
+        setFormData({ 
+          name: '', 
+          career: '', 
+          institution: '', 
+          supervisor: '', 
+          turno: '', 
+          conclusion: '' 
+        });
+        setActivities([{ id: Date.now(), description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
+        setCurrentStep(1);
+      }
     } catch (error) {
       console.error("Error subiendo reporte: ", error);
       toast.error(error.message || "Error al procesar el reporte.");
@@ -678,10 +722,79 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         </div>
       </div>
 
+      {/* INDICADOR VISUAL DE PASOS (STEPPER SIN SCROLL) */}
+      <div className="glass-card" style={{ padding: '0.85rem 1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {[
+            { step: 1, title: '01. Datos del Remitente', desc: 'Información y turno' },
+            { step: 2, title: `02. Tareas Ejecutadas (${activities.length})`, desc: 'Actividades y evidencias' },
+            { step: 3, title: '03. Conclusión & Envío', desc: 'Resumen y entrega final' }
+          ].map((item) => {
+            const isCurrent = currentStep === item.step;
+            const isDone = currentStep > item.step;
+            return (
+              <button
+                key={item.step}
+                type="button"
+                onClick={() => {
+                  if (item.step < currentStep) {
+                    setCurrentStep(item.step);
+                    window.scrollTo({ top: 140, behavior: 'smooth' });
+                  } else if (item.step === 2) {
+                    handleNextFromStep1();
+                  } else if (item.step === 3) {
+                    if (currentStep === 1) handleNextFromStep1();
+                    else handleNextFromStep2();
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  background: isCurrent ? 'var(--primary-light)' : 'transparent',
+                  border: isCurrent ? '1.5px solid var(--primary)' : '1px solid transparent',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.5rem 0.85rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  flex: '1 1 200px',
+                  transition: 'all 0.2s ease',
+                  userSelect: 'none'
+                }}
+              >
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: isDone ? '#16a34a' : isCurrent ? 'var(--primary)' : 'var(--surface-secondary)',
+                  color: isDone || isCurrent ? '#ffffff' : 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.82rem',
+                  fontWeight: 700
+                }}>
+                  {isDone ? '✓' : item.step}
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 700 : 600, color: isCurrent ? 'var(--primary)' : 'var(--text-main)' }}>
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {item.desc}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
         
         {/* SECCIÓN 1: DATOS GENERALES */}
-        <div className="glass-card">
+        {currentStep === 1 && (
+          <div className="glass-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.85rem' }}>
             <div style={{ 
               width: '32px', height: '32px', borderRadius: 'var(--radius-sm)', 
@@ -770,9 +883,22 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               </select>
             </div>
           </div>
-        </div>
 
-        {/* SECCIÓN 2: ACTIVIDADES REALIZADAS */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--surface-border)', paddingTop: '1.25rem' }}>
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              onClick={handleNextFromStep1}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.6rem', fontSize: '0.95rem' }}
+            >
+              Siguiente: Tareas Ejecutadas <ArrowRight size={17} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SECCIÓN 2: ACTIVIDADES REALIZADAS */}
+      {currentStep === 2 && (
         <div className="glass-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -947,10 +1073,32 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               </div>
             ))}
           </div>
-        </div>
 
-        {/* SECCIÓN 3: CONCLUSIONES */}
-        <div className="glass-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', borderTop: '1px solid var(--surface-border)', paddingTop: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              onClick={() => { setCurrentStep(1); window.scrollTo({ top: 140, behavior: 'smooth' }); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <ArrowLeft size={16} /> Volver a Datos Generales
+            </button>
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              onClick={handleNextFromStep2}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.6rem', fontSize: '0.95rem' }}
+            >
+              Siguiente: Conclusión y Envío <ArrowRight size={17} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SECCIÓN 3: CONCLUSIONES Y ENVÍO */}
+      {currentStep === 3 && (
+        <>
+          <div className="glass-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--surface-border)', paddingBottom: '0.85rem' }}>
             <div style={{ 
               width: '32px', height: '32px', borderRadius: 'var(--radius-sm)', 
@@ -993,7 +1141,17 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
           border: '1px solid var(--surface-border)', 
           boxShadow: 'var(--shadow-sm)' 
         }}>
+
+          
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              onClick={() => { setCurrentStep(2); window.scrollTo({ top: 140, behavior: 'smooth' }); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <ArrowLeft size={16} /> Volver a Tareas
+            </button>
             {isEncargadoMode && onCancel && (
               <button type="button" onClick={onCancel} className="btn btn-secondary">
                 Cancelar
@@ -1030,8 +1188,10 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             )}
           </button>
         </div>
+      </>
+    )}
 
-      </form>
+  </form>
 
       {/* MODAL CORPORATIVO DE CONFIRMACIÓN DE ÉXITO */}
       {submittedReport && (
