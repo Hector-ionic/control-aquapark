@@ -1,17 +1,63 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { db } from '../firebase';
-import { enableNetwork, disableNetwork } from 'firebase/firestore';
+import { enableNetwork, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 /**
- * Hook personalizado para supervisar la conectividad de red del sistema (Online / Offline).
- * Maneja eventos nativos del navegador, dispara alertas visuales y asegura
- * la sincronización con Firebase Cloud Firestore.
+ * Sincroniza bitácoras resguardadas localmente cuando no había conexión
+ */
+export async function syncPendingOfflineReports() {
+  try {
+    const raw = localStorage.getItem('aquapark_offline_reports');
+    if (!raw) return 0;
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list) || list.length === 0) return 0;
+
+    console.log(`Intentando sincronizar ${list.length} reporte(s) guardado(s) offline...`);
+    const remaining = [];
+    let syncedCount = 0;
+
+    for (const item of list) {
+      try {
+        const { id, isOffline, ...cleanData } = item;
+        await addDoc(collection(db, 'reports'), {
+          ...cleanData,
+          createdAt: serverTimestamp(),
+          syncedAt: serverTimestamp()
+        });
+        syncedCount++;
+      } catch (err) {
+        console.warn('Error al subir reporte offline a Firestore:', err);
+        remaining.push(item);
+      }
+    }
+
+    if (remaining.length === 0) {
+      localStorage.removeItem('aquapark_offline_reports');
+    } else {
+      localStorage.setItem('aquapark_offline_reports', JSON.stringify(remaining));
+    }
+
+    if (syncedCount > 0) {
+      toast.success(`✅ ${syncedCount} bitácora(s) local(es) sincronizada(s) con la nube.`, {
+        id: 'sync-offline-success',
+        duration: 5000
+      });
+    }
+    return syncedCount;
+  } catch (e) {
+    console.warn('Error en syncPendingOfflineReports:', e);
+    return 0;
+  }
+}
+
+/**
+ * Hook para supervisión de conectividad (Online / Offline) en tiempo real
  */
 export function useNetworkStatus() {
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
+  const [isOnline, setIsOnline] = useState(() => {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  });
   const wasOfflineRef = useRef(false);
 
   useEffect(() => {
@@ -19,7 +65,6 @@ export function useNetworkStatus() {
       setIsOnline(true);
       toast.dismiss('network-offline');
 
-      // Solo notificar si previamente se había caído la red
       if (wasOfflineRef.current) {
         toast.success('✅ Conexión restablecida. Sincronizando datos con la nube...', {
           id: 'network-online',
@@ -33,15 +78,20 @@ export function useNetworkStatus() {
         wasOfflineRef.current = false;
       }
 
-      // Asegurar reconexión y sincronización de mutaciones pendientes en Firestore
+      // Despertar Firestore
       try {
         await enableNetwork(db);
       } catch (err) {
-        console.warn('Aviso al reanudar red en Firebase Firestore:', err);
+        console.warn('Aviso al reanudar red en Firestore:', err);
       }
+
+      // Sincronizar reportes locales pendientes
+      setTimeout(() => {
+        syncPendingOfflineReports();
+      }, 1000);
     };
 
-    const handleOffline = async () => {
+    const handleOffline = () => {
       setIsOnline(false);
       wasOfflineRef.current = true;
       toast.dismiss('network-online');
@@ -58,23 +108,28 @@ export function useNetworkStatus() {
           }
         }
       );
-
-      // Poner Firestore en modo offline explícito
-      try {
-        await disableNetwork(db);
-      } catch (err) {
-        // En caso de que ya estuviese desconectado
-      }
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Verificación periódica activa por si cambia navigator.onLine
+    const interval = setInterval(() => {
+      if (typeof navigator !== 'undefined') {
+        if (!navigator.onLine && isOnline) {
+          handleOffline();
+        } else if (navigator.onLine && !isOnline) {
+          handleOnline();
+        }
+      }
+    }, 1000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
     };
-  }, []);
+  }, [isOnline]);
 
   return { isOnline };
 }

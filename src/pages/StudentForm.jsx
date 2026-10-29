@@ -382,43 +382,53 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
 
     setIsSubmitting(true);
     
-    try {
+        try {
+      const isDeviceOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
       const hasFiles = activities.some(act => act.rawFile);
       if (hasFiles) {
-        setUploadStatus('Cargando evidencias multimedia a la nube corporativa...');
+        setUploadStatus(isDeviceOnline ? 'Cargando evidencias multimedia a la nube corporativa...' : 'Procesando evidencias en modo local...');
       }
 
       const processedActivities = await Promise.all(activities.map(async (act) => {
         let finalUrl = null;
 
         if (act.rawFile || act.fileBase64) {
-          try {
-            const cloudFormData = new FormData();
-            cloudFormData.append('file', act.rawFile || act.fileBase64);
-            cloudFormData.append('upload_preset', 'ldqkrdsr');
-            
-            let resourceType = 'auto';
-            if (act.rawFile && act.rawFile.name) {
-              const ext = act.rawFile.name.split('.').pop().toLowerCase();
-              if (['doc', 'docx', 'pdf', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) {
-                resourceType = 'raw';
+          if (isDeviceOnline) {
+            try {
+              const cloudFormData = new FormData();
+              cloudFormData.append('file', act.rawFile || act.fileBase64);
+              cloudFormData.append('upload_preset', 'ldqkrdsr');
+              
+              let resourceType = 'auto';
+              if (act.rawFile && act.rawFile.name) {
+                const ext = act.rawFile.name.split('.').pop().toLowerCase();
+                if (['doc', 'docx', 'pdf', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) {
+                  resourceType = 'raw';
+                }
               }
-            }
 
-            const res = await fetch(`https://api.cloudinary.com/v1_1/dqrc7vc9y/${resourceType}/upload`, {
-              method: 'POST',
-              body: cloudFormData
-            });
-            const data = await res.json();
-            
-            if (data.secure_url) {
-              finalUrl = data.secure_url;
-            } else {
-              console.warn("Cloudinary no devolvió secure_url, usando respaldo local");
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+              const res = await fetch(`https://api.cloudinary.com/v1_1/dqrc7vc9y/${resourceType}/upload`, {
+                method: 'POST',
+                body: cloudFormData,
+                signal: controller.signal
+              });
+              clearTimeout(timeoutId);
+              const data = await res.json();
+              
+              if (data.secure_url) {
+                finalUrl = data.secure_url;
+              } else {
+                finalUrl = act.fileBase64 || null;
+              }
+            } catch (cloudErr) {
+              console.warn("Cloudinary omitido o cancelado por timeout/red:", cloudErr);
               finalUrl = act.fileBase64 || null;
             }
-          } catch (cloudErr) {
-            console.warn("No se pudo conectar a Cloudinary, guardando copia en Base64:", cloudErr);
+          } else {
+            // Modo sin conexión: almacenar de inmediato Base64 sin retrasos
             finalUrl = act.fileBase64 || null;
           }
         }
@@ -452,36 +462,86 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         conclusion: formData.conclusion,
         activities: processedActivities,
         status: 'Nuevo',
-        createdAt: serverTimestamp(),
         dateString: submitTime.toLocaleDateString('es-ES'),
         timeStart: calculatedTimeStart,
         timeEnd: submitTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
       };
 
-      const docRef = await addDoc(collection(db, "reports"), reportData);
-      logAuditEvent({
-        action: AUDIT_ACTIONS.CREAR_REPORTE,
-        module: AUDIT_MODULES.REPORTES,
-        details: `Bitácora enviada por ${formData.name} (${formData.turno}) asignada a ${formData.supervisor}.`,
-        targetId: docRef?.id,
-        userName: formData.name,
-        userRole: isEncargadoMode ? 'encargado' : 'pasante',
-        metadata: {
-          turno: formData.turno,
-          carrera: formData.career,
-          institucion: formData.institution,
-          totalActividades: processedActivities.length
-        }
-      });
+      let docRef = null;
+      let isStoredLocally = false;
 
-      // Despachar notificación automática por correo (Gmail microservicio)
-      sendReportEmail(reportData);
+      if (!isDeviceOnline) {
+        // MODO OFFLINE INMEDIATO: Nunca bloquear ni esperar la red
+        isStoredLocally = true;
+        const localId = `offline_${Date.now()}`;
+        docRef = { id: localId };
+
+        try {
+          const raw = localStorage.getItem('aquapark_offline_reports');
+          const list = raw ? JSON.parse(raw) : [];
+          list.push({ ...reportData, id: localId, isOffline: true });
+          localStorage.setItem('aquapark_offline_reports', JSON.stringify(list));
+        } catch (e) {
+          console.warn("Error guardando reporte offline en localStorage:", e);
+        }
+      } else {
+        // MODO ONLINE CON PROTECCIÓN DE TIMEOUT (2.5 segundos máximo)
+        try {
+          const firestorePromise = addDoc(collection(db, "reports"), {
+            ...reportData,
+            createdAt: serverTimestamp()
+          });
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('FIRESTORE_TIMEOUT')), 2500)
+          );
+          docRef = await Promise.race([firestorePromise, timeoutPromise]);
+
+          logAuditEvent({
+            action: AUDIT_ACTIONS.CREAR_REPORTE,
+            module: AUDIT_MODULES.REPORTES,
+            details: `Bitácora enviada por ${formData.name} (${formData.turno}) asignada a ${formData.supervisor}.`,
+            targetId: docRef?.id,
+            userName: formData.name,
+            userRole: isEncargadoMode ? 'encargado' : 'pasante',
+            metadata: {
+              turno: formData.turno,
+              carrera: formData.career,
+              institucion: formData.institution,
+              totalActividades: processedActivities.length
+            }
+          });
+
+          // Despachar notificación automática por correo (no bloqueante)
+          sendReportEmail(reportData).catch(e => console.warn(e));
+        } catch (err) {
+          console.warn("Firestore demoró o conexión inestable, resguardando en modo local:", err);
+          isStoredLocally = true;
+          const localId = `offline_${Date.now()}`;
+          docRef = { id: localId };
+
+          try {
+            const raw = localStorage.getItem('aquapark_offline_reports');
+            const list = raw ? JSON.parse(raw) : [];
+            list.push({ ...reportData, id: localId, isOffline: true });
+            localStorage.setItem('aquapark_offline_reports', JSON.stringify(list));
+          } catch (e) {}
+        }
+      }
 
       setSubmittedReport({
         id: docRef?.id,
+        isOffline: isStoredLocally,
         ...reportData
       });
-      toast.success("✅ ¡Bitácora registrada con éxito!");
+
+      if (isStoredLocally) {
+        toast.success("📡 Bitácora resguardada en modo local. Se sincronizará automáticamente al volver la conexión.", {
+          duration: 6000,
+          icon: '💾'
+        });
+      } else {
+        toast.success("✅ ¡Bitácora registrada con éxito!");
+      }
 
       // Limpiar de inmediato el formulario para permitir un nuevo llenado limpio
       if (!isEncargadoMode) {
@@ -1252,16 +1312,26 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
               <CheckCircle2 size={40} />
             </div>
 
-            <span className="badge badge-success" style={{ marginBottom: '0.5rem', fontSize: '0.75rem' }}>
-              Registro Completado
-            </span>
+            {submittedReport.isOffline ? (
+              <span className="badge badge-warning" style={{ marginBottom: '0.5rem', fontSize: '0.75rem' }}>
+                📡 Resguardo Local (Modo Sin Conexión)
+              </span>
+            ) : (
+              <span className="badge badge-success" style={{ marginBottom: '0.5rem', fontSize: '0.75rem' }}>
+                Registro Completado
+              </span>
+            )}
 
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0.5rem 0' }}>
-              ¡Bitácora Enviada con Éxito!
+              {submittedReport.isOffline ? '¡Bitácora Resguardada en Modo Local!' : '¡Bitácora Enviada con Éxito!'}
             </h2>
 
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-              Tu informe fue remitido formalmente a <strong>{submittedReport.supervisorOriginal || submittedReport.supervisor}</strong> y archivado con trazabilidad en el sistema.
+              {submittedReport.isOffline ? (
+                <>Tu informe fue guardado de forma segura en tu dispositivo para <strong>{submittedReport.supervisorOriginal || submittedReport.supervisor}</strong> y se sincronizará automáticamente con el servidor en cuanto recuperes la conexión a internet.</>
+              ) : (
+                <>Tu informe fue remitido formalmente a <strong>{submittedReport.supervisorOriginal || submittedReport.supervisor}</strong> y archivado con trazabilidad en el sistema.</>
+              )}
             </p>
 
             {/* TARJETA DE RESUMEN DEL FOLIO */}

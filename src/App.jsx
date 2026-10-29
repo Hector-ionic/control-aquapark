@@ -14,7 +14,8 @@ import AuditDashboard from './pages/AuditDashboard';
 import DynamicBackground from './components/DynamicBackground';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 
-function NavigationHeader({ theme, setTheme, isOnline = true }) {
+function NavigationHeader({ theme, setTheme }) {
+  const { isOnline } = useNetworkStatus();
   const location = useLocation();
   const { user, role, logout } = useAuth();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -61,11 +62,11 @@ function NavigationHeader({ theme, setTheme, isOnline = true }) {
             <span 
               className="status-dot" 
               style={{ 
-                background: isOnline ? undefined : '#ef4444',
-                boxShadow: isOnline ? undefined : '0 0 6px rgba(239, 68, 68, 0.8)'
+                background: isOnline ? '#10b981' : '#ef4444',
+                boxShadow: isOnline ? '0 0 6px rgba(16, 185, 129, 0.6)' : '0 0 6px rgba(239, 68, 68, 0.8)'
               }}
             ></span>
-            <span style={{ color: isOnline ? undefined : '#f87171', fontWeight: isOnline ? undefined : 600 }}>
+            <span style={{ color: isOnline ? 'var(--text-muted)' : '#f87171', fontWeight: isOnline ? 500 : 700 }}>
               {isOnline ? 'Sistema en Línea' : 'Sin Conexión (Modo Local)'}
             </span>
           </div>
@@ -263,6 +264,7 @@ function NavigationHeader({ theme, setTheme, isOnline = true }) {
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('aquapark_theme') || 'system');
+  const { isOnline } = useNetworkStatus();
 
   useEffect(() => {
     localStorage.setItem('aquapark_theme', theme);
@@ -291,6 +293,26 @@ function App() {
           }}
         />
         <div className="app-container">
+          {!isOnline && (
+            <div style={{
+              background: '#b91c1c',
+              color: '#ffffff',
+              textAlign: 'center',
+              padding: '0.5rem 1rem',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '1rem',
+              boxShadow: '0 2px 8px rgba(185, 28, 28, 0.3)'
+            }}>
+              <WifiOff size={16} />
+              <span>Estás trabajando sin conexión a internet. Los datos se guardan de forma segura localmente y se sincronizarán al reconectar.</span>
+            </div>
+          )}
           <NavigationHeader theme={theme} setTheme={setTheme} />
 
           <main>
