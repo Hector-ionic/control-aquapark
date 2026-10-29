@@ -102,6 +102,114 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
     { id: 1, description: '', link: '', fileName: '', fileBase64: null, fileType: null }
   ]);
 
+  // Estado para gestión de borrador automático
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
+
+  // Cargar borrador de localStorage al montar el formulario (modo pasante)
+  useEffect(() => {
+    if (!isEncargadoMode) {
+      try {
+        const raw = localStorage.getItem('aquapark_report_draft');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && (parsed.formData || parsed.activities)) {
+            if (parsed.formData) {
+              setFormData(prev => ({ ...prev, ...parsed.formData }));
+            }
+            if (parsed.activities && Array.isArray(parsed.activities) && parsed.activities.length > 0) {
+              setActivities(parsed.activities.map((a, i) => ({
+                id: a.id || Date.now() + i,
+                description: a.description || '',
+                link: a.link || '',
+                fileName: a.fileName || '',
+                fileBase64: null,
+                fileType: null
+              })));
+            }
+            setDraftSavedAt(parsed.savedAt ? new Date(parsed.savedAt) : new Date());
+            toast.success("Borrador recuperado automáticamente", { icon: "💾", duration: 3000 });
+          }
+        }
+      } catch (err) {
+        console.warn("No se pudo leer el borrador:", err);
+      }
+    }
+  }, [isEncargadoMode]);
+
+  // Auto-guardar cambios de texto en localStorage cada 600ms
+  useEffect(() => {
+    if (isEncargadoMode) return;
+
+    const hasAnyContent = 
+      formData.name.trim() || 
+      formData.career.trim() || 
+      formData.institution.trim() || 
+      formData.conclusion.trim() || 
+      formData.turno || 
+      activities.some(a => a.description.trim() || a.link.trim());
+
+    if (!hasAnyContent) return;
+
+    const timer = setTimeout(() => {
+      try {
+        const payload = {
+          formData,
+          activities: activities.map(a => ({
+            id: a.id,
+            description: a.description,
+            link: a.link,
+            fileName: a.fileName
+          })),
+          savedAt: new Date().toISOString()
+        };
+        localStorage.setItem('aquapark_report_draft', JSON.stringify(payload));
+        setDraftSavedAt(new Date());
+      } catch (e) {
+        console.warn("Error guardando borrador en localStorage:", e);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [formData, activities, isEncargadoMode]);
+
+  // Descartar borrador y limpiar
+  const handleDiscardDraft = () => {
+    if (window.confirm("¿Deseas descartar el borrador y limpiar todos los campos del formulario?")) {
+      try {
+        localStorage.removeItem('aquapark_report_draft');
+      } catch (e) {}
+      setFormData({
+        name: isEncargadoMode ? encargadoName : '',
+        career: '',
+        institution: '',
+        supervisor: '',
+        turno: '',
+        conclusion: ''
+      });
+      setActivities([{ id: Date.now(), description: '', link: '', fileName: '', fileBase64: null, fileType: null }]);
+      setDraftSavedAt(null);
+      toast.success("Borrador descartado. Formulario limpio.");
+    }
+  };
+
+  // Cálculo de progreso de llenado en tiempo real
+  const progressStats = useMemo(() => {
+    const checks = [
+      { key: 'name', label: 'Nombre Completo', ok: Boolean(formData.name.trim()) },
+      { key: 'career', label: 'Carrera', ok: Boolean(formData.career.trim()) },
+      { key: 'institution', label: 'Institución', ok: Boolean(formData.institution.trim()) },
+      { key: 'turno', label: 'Turno', ok: Boolean(formData.turno) },
+      { key: 'supervisor', label: 'Encargado Destino', ok: Boolean(formData.supervisor) },
+      { key: 'activities', label: 'Tareas Detalladas', ok: activities.length > 0 && activities.every(a => a.description.trim().length >= 10) },
+      { key: 'conclusion', label: 'Conclusión y Balance', ok: formData.conclusion.trim().length >= 10 }
+    ];
+    const completed = checks.filter(c => c.ok).length;
+    const total = checks.length;
+    const percentage = Math.round((completed / total) * 100);
+    const missing = checks.filter(c => !c.ok).map(c => c.label);
+    return { completed, total, percentage, missing, isComplete: completed === total };
+  }, [formData, activities]);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);

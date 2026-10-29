@@ -1283,6 +1283,115 @@ export default function SupervisorDashboard() {
           </div>
         )}
 
+        {/* BARRA DE CONTROLES DE PAGINACIÓN */}
+        {filteredReports.length > 0 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '1.15rem 1rem',
+            marginTop: '1.25rem',
+            background: 'var(--surface)',
+            border: '1px solid var(--surface-border)',
+            borderRadius: 'var(--radius-sm)',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.88rem', color: 'var(--text-main)', flexWrap: 'wrap' }}>
+              <span>
+                Mostrando del <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> al <strong>{Math.min(currentPage * itemsPerPage, filteredReports.length)}</strong> de <strong>{filteredReports.length}</strong> bitácoras
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '0.82rem' }}>Por página:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  style={{
+                    width: 'auto',
+                    padding: '0.25rem 0.55rem',
+                    fontSize: '0.82rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--surface-border)',
+                    background: 'var(--surface-secondary)',
+                    color: 'var(--text-main)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentPage(prev => Math.max(1, prev - 1));
+                  window.scrollTo({ top: 380, behavior: 'smooth' });
+                }}
+                disabled={currentPage === 1}
+                className="btn btn-secondary"
+                style={{
+                  padding: '0.45rem 0.85rem',
+                  fontSize: '0.82rem',
+                  opacity: currentPage === 1 ? 0.45 : 1,
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <ChevronLeft size={16} /> Anterior
+              </button>
+
+              {/* Botones de Páginas */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                .map((page, idx, arr) => (
+                  <React.Fragment key={page}>
+                    {idx > 0 && arr[idx - 1] !== page - 1 && (
+                      <span style={{ padding: '0 0.4rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>...</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentPage(page);
+                        window.scrollTo({ top: 380, behavior: 'smooth' });
+                      }}
+                      className={`btn ${currentPage === page ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{
+                        minWidth: '36px',
+                        padding: '0.4rem 0.7rem',
+                        fontSize: '0.82rem',
+                        fontWeight: currentPage === page ? 700 : 500
+                      }}
+                    >
+                      {page}
+                    </button>
+                  </React.Fragment>
+                ))}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                  window.scrollTo({ top: 380, behavior: 'smooth' });
+                }}
+                disabled={currentPage === totalPages}
+                className="btn btn-secondary"
+                style={{
+                  padding: '0.45rem 0.85rem',
+                  fontSize: '0.82rem',
+                  opacity: currentPage === totalPages ? 0.45 : 1,
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Siguiente <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
       {/* MODAL DE GESTIÓN DE ENCARGADOS */}
       {showStaffModal && typeof document !== "undefined" && createPortal(
