@@ -4,7 +4,7 @@ import {
   Mail, Key, Search, FileText, Eye, EyeOff, LogOut, Loader, Image as ImageIcon, 
   Link as LinkIcon, FileDown, Trash2, BarChart3, Download, Clock, Sun, Moon, 
   ArrowLeft, CheckCircle, AlertTriangle, AlertCircle, ShieldCheck, RefreshCw,
-  Building2, GraduationCap, UserCheck, Calendar, Sparkles, Check, FileSpreadsheet, Users, KeyRound, UserPlus, X
+  Building2, GraduationCap, UserCheck, Calendar, Sparkles, Check, FileSpreadsheet, Users, KeyRound, UserPlus, X, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
@@ -128,6 +128,8 @@ export default function SupervisorDashboard() {
   const [showPassword, setShowPassword] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
 
   // Analytics
   const stats = useMemo(() => {
@@ -153,6 +155,17 @@ export default function SupervisorDashboard() {
         return reportMonth === filterMonth;
       });
   }, [reports, searchTerm, filterTurno, showTrash, filterMonth]);
+
+  // Reiniciar a la página 1 cuando cambien filtros o tamaño de página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterTurno, filterMonth, showTrash, itemsPerPage]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / itemsPerPage));
+  const paginatedReports = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredReports.slice(start, start + itemsPerPage);
+  }, [filteredReports, currentPage, itemsPerPage]);
 
   // Excel Export (.xls corporativo)
   const exportExcel = () => {
@@ -1100,7 +1113,7 @@ export default function SupervisorDashboard() {
           <div>
             <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Bitácoras Recibidas</h3>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              Mostrando {filteredReports.length} {filteredReports.length === 1 ? 'registro' : 'registros'}
+              Mostrando {filteredReports.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredReports.length)} de {filteredReports.length} {filteredReports.length === 1 ? 'registro' : 'registros'} (Pág. {currentPage}/{totalPages})
             </p>
           </div>
 
@@ -1168,7 +1181,7 @@ export default function SupervisorDashboard() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {filteredReports.map(report => {
+            {paginatedReports.map(report => {
               const isNew = report.createdAt ? (Math.abs(new Date() - (report.createdAt.toDate ? report.createdAt.toDate() : new Date())) / 36e5) < 24 : false;
               const turnoBorder = report.turno === 'Mañana' ? '#f59e0b' : report.turno === 'Tarde' ? '#8b5cf6' : 'var(--primary)';
 

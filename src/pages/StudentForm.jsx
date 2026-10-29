@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Trash2, Upload, Link as LinkIcon, Send, FileDown, Loader, 
   FileText, Clock, Calendar, User, Briefcase, GraduationCap, Building2, 
-  CheckCircle2, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, X
+  CheckCircle2, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, X, Save, RotateCcw
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import toast from 'react-hot-toast';
@@ -491,6 +491,82 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             <span style={{ color: 'var(--surface-border-strong)' }}>|</span>
             <span style={{ color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}>{currentStr}</span>
           </div>
+        </div>
+      </div>
+
+      {/* BANNER DE PROGRESO DE LLENADO Y AUTO-GUARDADO DE BORRADOR */}
+      <div className="glass-card" style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+              Progreso del Reporte:
+            </span>
+            <span 
+              className={progressStats.isComplete ? "badge badge-success" : "badge badge-primary"}
+              style={{ fontSize: '0.75rem', padding: '0.15rem 0.55rem' }}
+            >
+              {progressStats.percentage}% ({progressStats.completed} de {progressStats.total})
+            </span>
+            {progressStats.isComplete ? (
+              <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <CheckCircle2 size={14} /> Listo para enviar
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Falta: {progressStats.missing.slice(0, 2).join(', ')}{progressStats.missing.length > 2 ? '...' : ''}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            {draftSavedAt && (
+              <span style={{ 
+                fontSize: '0.75rem', 
+                color: 'var(--primary)', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '0.3rem',
+                background: 'rgba(2, 132, 199, 0.1)',
+                padding: '0.2rem 0.6rem',
+                borderRadius: '4px',
+                fontWeight: 600
+              }}>
+                <Save size={12} />
+                Borrador guardado {draftSavedAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+
+            {(draftSavedAt || formData.name || formData.conclusion || activities[0]?.description) && !isEncargadoMode && (
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                title="Descartar borrador y limpiar formulario"
+              >
+                <RotateCcw size={12} /> Descartar Borrador
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Barra visual de porcentaje */}
+        <div style={{ 
+          width: '100%', 
+          height: '6px', 
+          background: 'var(--surface-secondary)', 
+          borderRadius: '999px', 
+          overflow: 'hidden' 
+        }}>
+          <div 
+            style={{ 
+              width: `${progressStats.percentage}%`, 
+              height: '100%', 
+              background: progressStats.isComplete ? '#16a34a' : 'linear-gradient(90deg, #0284c7, #38bdf8)', 
+              transition: 'width 0.35s ease-in-out',
+              borderRadius: '999px'
+            }} 
+          />
         </div>
       </div>
 
