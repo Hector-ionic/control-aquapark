@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { ShieldCheck, PlusCircle, LogIn, LogOut, User, Sparkles, ShieldAlert, Image as ImageIcon, KeyRound } from 'lucide-react';
+import { ShieldCheck, PlusCircle, LogIn, LogOut, User, Sparkles, ShieldAlert, Image as ImageIcon, KeyRound, Wifi, WifiOff } from 'lucide-react';
 import PasswordRequestsModal from './components/PasswordRequestsModal';
 import { subscribeToPasswordRequests } from './services/passwordRequestService';
 import { Toaster } from 'react-hot-toast';
@@ -12,8 +12,9 @@ import StudentForm from './pages/StudentForm';
 import SupervisorDashboard from './pages/SupervisorDashboard';
 import AuditDashboard from './pages/AuditDashboard';
 import DynamicBackground from './components/DynamicBackground';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
 
-function NavigationHeader({ theme, setTheme }) {
+function NavigationHeader({ theme, setTheme, isOnline = true }) {
   const location = useLocation();
   const { user, role, logout } = useAuth();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -57,8 +58,16 @@ function NavigationHeader({ theme, setTheme }) {
             <span className="badge badge-primary" style={{ fontSize: '0.62rem', padding: '0.15rem 0.5rem' }}>Oficial</span>
           </div>
           <div className="status-indicator" style={{ fontSize: '0.72rem', marginTop: '0.15rem' }}>
-            <span className="status-dot"></span>
-            <span>Sistema en Línea</span>
+            <span 
+              className="status-dot" 
+              style={{ 
+                background: isOnline ? undefined : '#ef4444',
+                boxShadow: isOnline ? undefined : '0 0 6px rgba(239, 68, 68, 0.8)'
+              }}
+            ></span>
+            <span style={{ color: isOnline ? undefined : '#f87171', fontWeight: isOnline ? undefined : 600 }}>
+              {isOnline ? 'Sistema en Línea' : 'Sin Conexión (Modo Local)'}
+            </span>
           </div>
         </div>
       </Link>
