@@ -505,18 +505,6 @@ export default function AuditDashboard() {
         </div>
       </div>
 
-      {/* Subbarra de conteo de registros y paginación actual */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', padding: '0 0.25rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-        <span>
-          Mostrando <strong>{filteredLogs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</strong> de <strong>{filteredLogs.length}</strong> {filteredLogs.length === 1 ? 'evento registrado' : 'eventos registrados'}
-        </span>
-        {totalPages > 1 && (
-          <span className="badge badge-secondary" style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}>
-            Página {currentPage} de {totalPages}
-          </span>
-        )}
-      </div>
-
       {/* Tabla de Auditoría */}
       <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
         {isLoading ? (
@@ -537,6 +525,32 @@ export default function AuditDashboard() {
           </div>
         ) : (
           <>
+            {/* Cabecera superior interna de la tabla de auditoría (100% contraste en Claro y Oscuro) */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '0.75rem 1.25rem',
+              background: 'var(--surface-secondary)',
+              borderBottom: '1px solid var(--surface-border)',
+              fontSize: '0.85rem',
+              color: 'var(--text-main)',
+              flexWrap: 'wrap',
+              gap: '0.5rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ShieldCheck size={16} color="var(--primary)" />
+                <span>
+                  Mostrando <strong>{filteredLogs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</strong> de <strong>{filteredLogs.length}</strong> {filteredLogs.length === 1 ? 'evento registrado' : 'eventos registrados'}
+                </span>
+              </div>
+              {totalPages > 1 && (
+                <span className="badge badge-primary" style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}>
+                  Página {currentPage} de {totalPages}
+                </span>
+              )}
+            </div>
+
             <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
               <thead>
