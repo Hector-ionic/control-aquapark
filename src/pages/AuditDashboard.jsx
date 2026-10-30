@@ -29,6 +29,10 @@ export default function AuditDashboard() {
   const [selectedLogDetail, setSelectedLogDetail] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
+  // Estados de paginación (15 registros por página por defecto)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+
   useEffect(() => {
     setIsLoading(true);
     const unsubscribe = subscribeToAuditLogs((data) => {
