@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   ShieldAlert, Activity, Search, Filter, Download, User, Calendar, 
   Clock, CheckCircle, AlertTriangle, FileText, Lock, RefreshCw,
-  Eye, ShieldCheck, Terminal, RotateCcw, Copy, Check, BarChart2, FileSpreadsheet
+  Eye, ShieldCheck, Terminal, RotateCcw, Copy, Check, BarChart2, FileSpreadsheet, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { 
@@ -148,6 +148,17 @@ export default function AuditDashboard() {
       return true;
     });
   }, [logs, searchTerm, selectedRole, selectedAction, selectedModule, timePreset]);
+
+  // Reiniciar a la página 1 cuando cambien filtros o tamaño de página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedRole, selectedAction, selectedModule, timePreset, itemsPerPage, logLimit]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage));
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredLogs.slice(start, start + itemsPerPage);
+  }, [filteredLogs, currentPage, itemsPerPage]);
 
   const handleExportExcel = useCallback(() => {
     if (filteredLogs.length === 0) {
