@@ -782,7 +782,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
         </div>
       </div>
 
-      {/* INDICADOR VISUAL DE PASOS (STEPPER SIN SCROLL) */}
+            {/* INDICADOR VISUAL DE PASOS (SOLO ESTÉTICO - NAVEGACIÓN VÍA BOTONES INFERIORES) */}
       <div className="glass-card" style={{ padding: '0.85rem 1.25rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           {[
@@ -793,20 +793,8 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
             const isCurrent = currentStep === item.step;
             const isDone = currentStep > item.step;
             return (
-              <button
+              <div
                 key={item.step}
-                type="button"
-                onClick={() => {
-                  if (item.step < currentStep) {
-                    setCurrentStep(item.step);
-                    window.scrollTo({ top: 140, behavior: 'smooth' });
-                  } else if (item.step === 2) {
-                    handleNextFromStep1();
-                  } else if (item.step === 3) {
-                    if (currentStep === 1) handleNextFromStep1();
-                    else handleNextFromStep2();
-                  }
-                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -815,11 +803,12 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                   border: isCurrent ? '1.5px solid var(--primary)' : '1px solid transparent',
                   borderRadius: 'var(--radius-sm)',
                   padding: '0.5rem 0.85rem',
-                  cursor: 'pointer',
+                  cursor: 'default',
                   textAlign: 'left',
                   flex: '1 1 200px',
                   transition: 'all 0.2s ease',
-                  userSelect: 'none'
+                  userSelect: 'none',
+                  pointerEvents: 'none'
                 }}
               >
                 <div style={{
@@ -844,7 +833,7 @@ export default function StudentForm({ isEncargadoMode = false, encargadoName = '
                     {item.desc}
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
