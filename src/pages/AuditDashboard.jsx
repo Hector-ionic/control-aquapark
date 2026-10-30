@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   ShieldAlert, Activity, Search, Filter, Download, User, Calendar, 
   Clock, CheckCircle, AlertTriangle, FileText, Lock, RefreshCw,
-  Eye, ShieldCheck, Terminal, RotateCcw, Copy, Check, BarChart2, FileSpreadsheet
+  Eye, ShieldCheck, Terminal, RotateCcw, Copy, Check, BarChart2, FileSpreadsheet,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { 
@@ -28,6 +29,10 @@ export default function AuditDashboard() {
   // Estados visuales
   const [selectedLogDetail, setSelectedLogDetail] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+
+  // Paginación interactiva
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
 
   useEffect(() => {
     setIsLoading(true);
@@ -148,6 +153,17 @@ export default function AuditDashboard() {
       return true;
     });
   }, [logs, searchTerm, selectedRole, selectedAction, selectedModule, timePreset]);
+
+  // Reiniciar a la página 1 cuando cambien filtros o tamaño de página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedRole, selectedAction, selectedModule, timePreset, itemsPerPage, logLimit]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage));
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredLogs.slice(start, start + itemsPerPage);
+  }, [filteredLogs, currentPage, itemsPerPage]);
 
   const handleExportExcel = useCallback(() => {
     if (filteredLogs.length === 0) {
@@ -489,6 +505,18 @@ export default function AuditDashboard() {
         </div>
       </div>
 
+      {/* Subbarra de conteo de registros y paginación actual */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', padding: '0 0.25rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+        <span>
+          Mostrando <strong>{filteredLogs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</strong> de <strong>{filteredLogs.length}</strong> {filteredLogs.length === 1 ? 'evento registrado' : 'eventos registrados'}
+        </span>
+        {totalPages > 1 && (
+          <span className="badge badge-secondary" style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}>
+            Página {currentPage} de {totalPages}
+          </span>
+        )}
+      </div>
+
       {/* Tabla de Auditoría */}
       <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
         {isLoading ? (
@@ -522,7 +550,7 @@ export default function AuditDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.map((log) => (
+                {paginatedLogs.map((log) => (
                   <tr 
                     key={log.id} 
                     style={{ borderBottom: '1px solid var(--surface-border)', transition: 'background 0.15s ease' }}
